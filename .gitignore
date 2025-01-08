@@ -1,0 +1,8 @@
+.Xil/
+*.jou
+*.log
+clockinfo.txt
+reports/
+*.bin
+*.bit
+routed_design.dcp
