@@ -1,8 +1,9 @@
 .Xil/
 *.jou
 *.log
-clockinfo.txt
+clockInfo.txt
 reports/
 *.bin
 *.bit
 routed_design.dcp
+clockinfo.txt

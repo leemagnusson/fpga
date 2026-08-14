@@ -13,7 +13,7 @@ write_checkpoint -force routed_design
 
 set rep_dir ./reports
 file mkdir  $rep_dir
-write_verilog -force $rep_dir/blah.v
+write_verilog -force $rep_dir/${design_name}_netlist.v
 check_timing -file $rep_dir/post_route_timing_check.rpt
 report_timing_summary -file $rep_dir/post_route_timing_summary.rpt
 report_clock_utilization -file $rep_dir/post_route_clock_util.rpt
