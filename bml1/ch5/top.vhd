@@ -18,7 +18,7 @@ architecture rtl of top is
     signal clk_100m_tree    : std_logic;
     signal d_flop_sr        : std_logic_vector( 3 downto 0 ) := "0001";
     signal pulse_1hz        : std_logic := '0';
-    signal hz_counter       : integer := 0;
+    signal hz_counter       : integer range 0 to 100_000_000 - 1 := 0;
 
 begin
 
