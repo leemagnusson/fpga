@@ -19,6 +19,8 @@ jobs:
     container: hdlc/ghdl:yosys
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Tool versions
         run: |
           ghdl --version | head -1
