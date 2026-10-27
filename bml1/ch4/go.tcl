@@ -22,5 +22,8 @@ report_io -file $rep_dir/post_route_io.rpt
 
 write_bitstream -force -bin_file ${design_name}.bit
 
-source program.tcl
+# Skip board programming when running under CI (no hardware attached)
+if {![info exists ::env(CI)]} {
+    source program.tcl
+}
 exit
