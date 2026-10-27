@@ -1,0 +1,79 @@
+# Full Vivado implementation (synth -> place -> route -> bitstream) using the
+# project's own go.tcl scripts, exactly as go.sh does on a developer machine.
+#
+# Vivado cannot run on GitHub-hosted runners (tens of GB, licensed installer),
+# so this needs a self-hosted runner with the "vivado" label. To enable it:
+#   1. Register a self-hosted runner (repo Settings -> Actions -> Runners) and
+#      give it the extra label "vivado".
+#      The easy way: ci/runner/install.sh does this and configures Vivado in
+#      Docker (see README.md, "Setting up a runner machine").
+#   2. Set the repository variable VIVADO_RUNNER to "true"
+#      (Settings -> Secrets and variables -> Actions -> Variables).
+# Until VIVADO_RUNNER is set the job is skipped, so it never queues forever.
+name: Vivado build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  implement:
+    name: Vivado ${{ matrix.project }}
+    # Self-hosted runners execute whatever a PR contains, so never run this for
+    # pull requests from forks of this (public) repo. Pushes and same-repo PRs
+    # are fine.
+    if: >-
+      vars.VIVADO_RUNNER == 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: [self-hosted, vivado]
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [ch4, ch5]
+    env:
+      # go.tcl skips program.tcl (board programming) when CI is set.
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      # How Vivado runs is normally configured per machine in the runner's
+      # .env file (written by ci/runner/install.sh). Repository variables, if
+      # set, override that for every runner.
+      - name: Apply repository variables
+        run: |
+          if [ -n "${{ vars.VIVADO_DOCKER_IMAGE }}" ]; then echo "VIVADO_DOCKER_IMAGE=${{ vars.VIVADO_DOCKER_IMAGE }}" >> "$GITHUB_ENV"; fi
+          if [ -n "${{ vars.VIVADO_HOME }}" ];         then echo "VIVADO_HOME=${{ vars.VIVADO_HOME }}"                 >> "$GITHUB_ENV"; fi
+          if [ -n "${{ vars.VIVADO_SETTINGS }}" ];     then echo "VIVADO_SETTINGS=${{ vars.VIVADO_SETTINGS }}"         >> "$GITHUB_ENV"; fi
+
+      - name: Run go.tcl
+        working-directory: bml1/${{ matrix.project }}
+        run: |
+          ../../ci/vivado.sh -version | head -1
+          ../../ci/vivado.sh -mode batch -source go.tcl
+
+      - name: Check results
+        working-directory: bml1/${{ matrix.project }}
+        run: |
+          # Vivado can exit 0 after a start-up failure, so check the outputs.
+          test -f top.bit || { echo "::error::top.bit was not produced"; exit 1; }
+          rpt=reports/post_route_timing_summary.rpt
+          if ! grep -q "All user specified timing constraints are met" "$rpt"; then
+            echo "::error::timing constraints not met, see $rpt"
+            grep -A4 "Design Timing Summary" "$rpt" || true
+            exit 1
+          fi
+          echo "Bitstream built and timing met."
+
+      - name: Upload bitstream and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vivado-${{ matrix.project }}
+          if-no-files-found: ignore
+          path: |
+            bml1/${{ matrix.project }}/top.bit
+            bml1/${{ matrix.project }}/top.bin
+            bml1/${{ matrix.project }}/reports/
+            bml1/${{ matrix.project }}/vivado.log

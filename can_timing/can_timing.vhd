@@ -28,9 +28,10 @@ begin
     process (clk) is
     begin
         if rising_edge(clk) then
-            counter <= counter + 1;
             if counter = 15000 then
                 counter <= 0;
+            else
+                counter <= counter + 1;
             end if;
         end if;
     end process;

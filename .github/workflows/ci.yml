@@ -1,0 +1,27 @@
+# Open-source build checks that run on GitHub-hosted runners for every push.
+# Vivado is not available there, so this uses GHDL + Yosys (hdlc/ghdl:yosys
+# image from https://github.com/hdl/containers) to synthesise each project for
+# Artix-7 and run the simulations. See ci/check.sh for the details.
+#
+# The real Vivado flow runs in .github/workflows/vivado.yml on a self-hosted
+# runner.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  opensource:
+    name: GHDL + Yosys build checks
+    runs-on: ubuntu-latest
+    container: hdlc/ghdl:yosys
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tool versions
+        run: |
+          ghdl --version | head -1
+          yosys -V
+      - name: Build and simulate all projects
+        run: ci/check.sh
