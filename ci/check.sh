@@ -9,6 +9,7 @@
 #   * bml1/ch4, bml1/ch5 : synthesise top.vhd (GHDL + Yosys) and top.v (Yosys)
 #                          for Artix-7, which catches syntax/elaboration errors
 #                          and non-synthesisable constructs.
+#   * bml1/seg, bml1/seg2: synthesise the seven-segment designs the same way.
 #   * can_timing         : run the can_sim testbench in GHDL.
 #   * litefury_canfd     : analyse the glue RTL, and the CTU CAN FD core if the
 #                          submodule is checked out (the PCIe IP needs Vivado).
@@ -51,6 +52,13 @@ for proj in bml1/ch4 bml1/ch5; do
     endgroup
 done
 
+# the seven-segment designs live beside their project directories
+for src in bml1/seg.vhd bml1/seg2.vhd; do
+    group "$src: synthesise for Artix-7 (GHDL + Yosys)"
+    synth_stat "ghdl $GHDL_FLAGS $src -e top; synth_xilinx -top top"
+    endgroup
+done
+
 group "can_timing: run can_sim testbench (GHDL)"
 ghdl -a $GHDL_FLAGS can_timing/can_timing.vhd can_timing/can_sim.vhd
 # One full message cycle is 15001 clocks at 66.6 ns, about 1 ms. Run two.
@@ -82,10 +90,6 @@ else
 fi
 
 group "bml1 loose tutorial sources: analyse only"
-for f in bml1/seg.vhd bml1/seg2.vhd; do
-    ghdl -a $GHDL_FLAGS "$f"
-    echo "ok: $f"
-done
 for f in bml1/top2.v bml1/top3.v; do
     yosys -q -p "read_verilog $f; synth_xilinx -top top"
     echo "ok: $f"

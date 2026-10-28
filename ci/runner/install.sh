@@ -14,7 +14,8 @@
 #   --image IMAGE     Docker image for Vivado. Default: vivado:<ver> if that
 #                     image exists locally, else vivado-runtime:<ver>. Use
 #                     "none" to run Vivado natively from PATH instead.
-#   --dir DIR         where to install the runner (default: ~/actions-runner)
+#   --dir DIR         where to install the runner (default: ~/actions-runner-fpga,
+#                     separate from any runner already serving another repo)
 #   --name NAME       runner name (default: hostname)
 #   --download-only   fetch and unpack the runner software, do not register
 #
@@ -24,7 +25,7 @@ set -euo pipefail
 
 token=${RUNNER_TOKEN:-}
 image=""
-dir="$HOME/actions-runner"
+dir="$HOME/actions-runner-fpga"
 name=$(hostname)
 download_only=0
 while [ $# -gt 0 ]; do

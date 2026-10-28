@@ -52,6 +52,16 @@ update_compile_order -fileset sources_1
 source $here/bd.tcl
 
 set wrapper [make_wrapper -files [get_files canfd.bd] -top]
+# Vivado copies its environment banner into the wrapper's header comment; on a
+# machine with a multi-line /etc/os-release value that breaks the VHDL. Keep
+# only the code (from the first "library" line on).
+set fh [open $wrapper r]; set lines [split [read $fh] "\n"]; close $fh
+set start [lsearch -regexp $lines {^\s*library\s}]
+if {$start > 0} {
+    set fh [open $wrapper w]
+    puts $fh [join [lrange $lines $start end] "\n"]
+    close $fh
+}
 add_files -norecurse $wrapper
 set_property top canfd_wrapper [current_fileset]
 update_compile_order -fileset sources_1

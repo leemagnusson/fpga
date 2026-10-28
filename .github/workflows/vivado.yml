@@ -34,6 +34,8 @@ jobs:
         include:
           - { project: bml1/ch4,       name: ch4 }
           - { project: bml1/ch5,       name: ch5 }
+          - { project: bml1/seg,       name: seg }
+          - { project: bml1/seg2,      name: seg2 }
           - { project: litefury_canfd, name: litefury_canfd }
     env:
       # go.tcl skips program.tcl (board programming) when CI is set.
