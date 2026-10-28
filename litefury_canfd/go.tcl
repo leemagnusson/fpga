@@ -17,6 +17,7 @@ set design_name top
 set device xc7a100tfgg484-2L
 set here [file dirname [file normalize [info script]]]
 set repo [file normalize $here/..]
+source $here/fix_banners.tcl
 
 proc env_or {name default} {
     if {[info exists ::env($name)] && $::env($name) ne ""} { return $::env($name) }
@@ -52,33 +53,9 @@ update_compile_order -fileset sources_1
 source $here/bd.tcl
 
 # Import the wrapper as a static source (the project is recreated on every
-# build, so it never goes stale); fix_banners below then repairs its header.
+# build, so it never goes stale). Its banner, like that of every other file
+# Vivado generates, may need repairing: see fix_banners.tcl.
 set wrapper [make_wrapper -files [get_files canfd.bd] -top -import]
-# Vivado writes a "Host : <name> running <os-release PRETTY_NAME>" line into
-# the comment banner of every file it generates. On a machine whose
-# /etc/os-release has a multi-line value, the rest of that value spills out as
-# bare source lines right after the Host line and synthesis dies with
-# "syntax error near 'VERSION_ID'". Comment out those spilled lines.
-proc fix_banners {dir} {
-    foreach f [glob -nocomplain -directory $dir -types f *] {
-        if {![regexp {\.(vhdl?|s?v)$} $f]} continue
-        set fh [open $f r]; set lines [split [read $fh] "\n"]; close $fh
-        set host [lsearch -regexp [lrange $lines 0 15] {^\s*(--|//)\s*Host\s*:}]
-        if {$host < 0} continue
-        set tok [expr {[regexp {\.vhdl?$} $f] ? "--" : "//"}]
-        set changed 0
-        for {set i [expr {$host + 1}]} {$i < [llength $lines]} {incr i} {
-            set l [string trimleft [lindex $lines $i]]
-            if {[string match "${tok}*" $l]} break
-            lset lines $i "$tok $l"; set changed 1
-        }
-        if {$changed} {
-            set fh [open $f w]; puts -nonewline $fh [join $lines "\n"]; close $fh
-            puts "fix_banners: repaired $f"
-        }
-    }
-    foreach d [glob -nocomplain -directory $dir -types d *] { fix_banners $d }
-}
 set_property top canfd_wrapper [current_fileset]
 update_compile_order -fileset sources_1
 
@@ -92,8 +69,21 @@ set_property PROCESSING_ORDER LATE  [get_files litefury_impl.xdc]
 set_property USED_IN {implementation} [get_files litefury_impl.xdc]
 
 generate_target all [get_files canfd.bd]
-fix_banners [file dirname [file dirname [get_property NAME \
-    [get_files -of_objects [get_filesets sources_1] *canfd_wrapper.vhd]]]]
+# Everything generated so far: the imported wrapper (canfd.srcs), the block
+# design netlist, the SmartConnect's nested block design and the IP output
+# products (canfd.gen).
+set proj_dir [get_property DIRECTORY [current_project]]
+fix_banners $proj_dir
+# The out-of-context IP synthesis runs then write black-box stubs
+# (*_stub.vhdl, *_stub.v) with the same banner, and synth_1 parses those, so
+# repeat the repair inside synth_1 right before synth_design.
+set hook $proj_dir/fix_banners_pre_synth.tcl
+set fh [open $hook w]
+puts $fh "source [list $here/fix_banners.tcl]"
+puts $fh "fix_banners [list $proj_dir]"
+close $fh
+set hook_file [add_files -fileset utils_1 -norecurse $hook]
+set_property STEPS.SYNTH_DESIGN.TCL.PRE $hook_file [get_runs synth_1]
 # The PCIe bridge is tight at 125 MHz on the -2L speed grade; physical
 # optimisation closes it.
 set_property strategy Performance_ExplorePostRoutePhysOpt [get_runs impl_1]

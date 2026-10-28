@@ -165,3 +165,9 @@ runner's `.env` file:
 ```sh
 LD_LIBRARY_PATH=<vivado-install>/Vivado/lib/lnx64.o/Ubuntu/24
 ```
+
+On such an OS Vivado also spills part of `/etc/os-release` into the comment
+banner of every HDL file it generates, which breaks synthesis of block
+designs with `syntax error near 'VERSION_ID'`. `litefury_canfd/go.tcl`
+repairs the generated files (see `litefury_canfd/fix_banners.tcl`); the
+other projects generate no HDL and are unaffected.

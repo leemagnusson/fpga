@@ -84,3 +84,4 @@ jobs:
             ${{ matrix.project }}/top.bin
             ${{ matrix.project }}/reports/
             ${{ matrix.project }}/vivado.log
+            ${{ matrix.project }}/build/**/runme.log
