@@ -51,18 +51,21 @@ update_compile_order -fileset sources_1
 
 source $here/bd.tcl
 
-set wrapper [make_wrapper -files [get_files canfd.bd] -top]
-# Vivado copies its environment banner into the wrapper's header comment; on a
-# machine with a multi-line /etc/os-release value that breaks the VHDL. Keep
-# only the code (from the first "library" line on).
-set fh [open $wrapper r]; set lines [split [read $fh] "\n"]; close $fh
-set start [lsearch -regexp $lines {^\s*library\s}]
-if {$start > 0} {
-    set fh [open $wrapper w]
-    puts $fh [join [lrange $lines $start end] "\n"]
-    close $fh
+# Import the wrapper as a static source (the project is recreated on every
+# build, so it never goes stale) and strip Vivado's environment banner from
+# its header: on a machine with a multi-line /etc/os-release value the banner
+# breaks the VHDL comment. Done after generate_target, which would rewrite a
+# generated (non-imported) wrapper.
+set wrapper [make_wrapper -files [get_files canfd.bd] -top -import]
+proc strip_banner {path} {
+    set fh [open $path r]; set lines [split [read $fh] "\n"]; close $fh
+    set start [lsearch -regexp $lines {^\s*library\s}]
+    if {$start > 0} {
+        set fh [open $path w]
+        puts $fh [join [lrange $lines $start end] "\n"]
+        close $fh
+    }
 }
-add_files -norecurse $wrapper
 set_property top canfd_wrapper [current_fileset]
 update_compile_order -fileset sources_1
 
@@ -76,6 +79,7 @@ set_property PROCESSING_ORDER LATE  [get_files litefury_impl.xdc]
 set_property USED_IN {implementation} [get_files litefury_impl.xdc]
 
 generate_target all [get_files canfd.bd]
+strip_banner [get_property NAME [get_files -of_objects [get_filesets sources_1] *canfd_wrapper.vhd]]
 # The PCIe bridge is tight at 125 MHz on the -2L speed grade; physical
 # optimisation closes it.
 set_property strategy Performance_ExplorePostRoutePhysOpt [get_runs impl_1]
