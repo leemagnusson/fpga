@@ -18,10 +18,10 @@ architecture arch of top is
     signal number : integer := 5;
     signal current_digit : integer := 0;
     signal clk_1hz : std_logic := '0';
-    signal clk_1khz : std_logic := '0';
-    signal counter_1hz : integer := 0;
-    signal counter_1khz : integer := 0;
-    signal digit_sel : integer := 0;
+    signal tick_1khz : std_logic := '0';
+    signal counter_1hz : integer range 0 to 50_000_000 := 0;
+    signal counter_1khz : integer range 0 to 50_000 := 0;
+    signal digit_sel : integer range 0 to 3 := 0;
     type digit_array_type is array(0 to 3) of std_logic_vector(3 downto 0);
     signal digit_array : digit_array_type := ("0000", "0000", "0000", "0000");
     signal reset : std_logic := '0';
@@ -32,10 +32,12 @@ architecture arch of top is
     signal button_r_pressed : std_logic := '0';
     signal button_l2 : std_logic := '0';
     signal button_r2 : std_logic := '0';
-    signal button_l_count : integer := 0;
+    signal button_l_sync : std_logic_vector(1 downto 0) := "00";   -- 2-flop synchroniser
+    signal button_l_count : integer range 0 to 1_000_000 := 0;     -- debounce lock-out (100 ms)
     signal clk_1hz_pulse : std_logic := '0';
-    signal button_count : integer := 0;
-    signal last_button_count : integer := 0;
+    -- presses in the current second, and the value shown: presses in the last full second
+    signal button_count : integer range 0 to 9999 := 0;
+    signal last_button_count : integer range 0 to 9999 := 0;
 begin
     -- process (clk_1hz) is
     -- begin
@@ -89,7 +91,11 @@ begin
     --     end if;
     -- end process;
 
-    digit_array(0) <= std_logic_vector(to_unsigned(last_button_count*3, 4));
+    -- show last_button_count as four decimal digits (digit 0 = ones, rightmost)
+    digit_array(0) <= std_logic_vector(to_unsigned(last_button_count mod 10, 4));
+    digit_array(1) <= std_logic_vector(to_unsigned((last_button_count / 10) mod 10, 4));
+    digit_array(2) <= std_logic_vector(to_unsigned((last_button_count / 100) mod 10, 4));
+    digit_array(3) <= std_logic_vector(to_unsigned(last_button_count / 1000, 4));
         
 
 
@@ -115,7 +121,7 @@ begin
             if clk_1hz_pulse = '1' then
                 button_count <= 0;
                 last_button_count <= button_count;
-            elsif button_l_pressed = '1' then
+            elsif button_l_pressed = '1' and button_count < 9999 then
                 button_count <= button_count + 1;
             end if;
         end if;
@@ -126,20 +132,23 @@ begin
         if rising_edge(clk) then
             if counter_1khz = 50000 then
                 counter_1khz <= 0;
-                clk_1khz <= not clk_1khz;
+                tick_1khz <= '1';
             else
                 counter_1khz <= counter_1khz + 1;
+                tick_1khz <= '0';
             end if;
         end if;
     end process;
 
-    process (clk_1khz) is
+    process (clk) is
     begin
-        if rising_edge(clk_1khz) then
-            if digit_sel = 3 then
-                digit_sel <= 0;
-            else
-                digit_sel <= digit_sel + 1;
+        if rising_edge(clk) then
+            if tick_1khz = '1' then
+                if digit_sel = 3 then
+                    digit_sel <= 0;
+                else
+                    digit_sel <= digit_sel + 1;
+                end if;
             end if;
         end if;
     end process;
@@ -160,16 +169,18 @@ begin
         end case;
     end process;
 
-    process (button_l, clk) is
+    process (clk) is
     begin
         if rising_edge(clk) then
-            button_l2 <= button_l;
-            if button_l2 = '1' and last_button_l = '0' and button_l_count = 10000000 then
+            button_l_sync <= button_l_sync(0) & button_l;
+            button_l2 <= button_l_sync(1);
+            -- one press per rising edge, then ignore the button for 10 ms (bounce)
+            if button_l2 = '1' and last_button_l = '0' and button_l_count = 1000000 then
                 button_l_pressed <= '1';
                 button_l_count <= 0;
             else
                 button_l_pressed <= '0';
-                if button_l_count < 10000000 then
+                if button_l_count < 1000000 then
                     button_l_count <= button_l_count + 1;
                 end if;
             end if;

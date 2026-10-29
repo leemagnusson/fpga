@@ -28,6 +28,18 @@ if [ -z "${VIVADO_DOCKER_IMAGE:-}" ]; then
         # shellcheck disable=SC1090
         source "$VIVADO_SETTINGS"
     fi
+    # Vivado 2026.1 only recognises Ubuntu 22/24 and otherwise fails at start-up
+    # with "libncurses.so.5: cannot open shared object file" (while exiting 0).
+    # On newer distributions point it at its own bundled copy.
+    if command -v vivado >/dev/null && ! ldconfig -p 2>/dev/null | grep -q 'libncurses\.so\.5'; then
+        root=$(cd "$(dirname "$(readlink -f "$(command -v vivado)")")/../.." && pwd)
+        for d in "$root/Vivado/lib/lnx64.o/Ubuntu/24" "$root/Vivado/lib/lnx64.o/Ubuntu/22"; do
+            if [ -e "$d/libncurses.so.5" ]; then
+                export LD_LIBRARY_PATH="$d${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+                break
+            fi
+        done
+    fi
     exec vivado "$@"
 fi
 
@@ -50,9 +62,10 @@ docker_args=(
 
 license=${VIVADO_LICENSE_FILE:-$HOME/.Xilinx/Xilinx.lic}
 if [ -f "$license" ]; then
+    # mounted outside ~/.Xilinx so Vivado can still create its own (writable) ~/.Xilinx
     docker_args+=(
-        -v "$license:/tmp/.Xilinx/Xilinx.lic:ro"
-        -e XILINXD_LICENSE_FILE=/tmp/.Xilinx/Xilinx.lic
+        -v "$license:/tmp/xilinx-license/Xilinx.lic:ro"
+        -e XILINXD_LICENSE_FILE=/tmp/xilinx-license/Xilinx.lic
     )
 fi
 

@@ -31,12 +31,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [ch4, ch5]
+        include:
+          - { project: bml1/ch4,       name: ch4 }
+          - { project: bml1/ch5,       name: ch5 }
+          - { project: bml1/seg,       name: seg }
+          - { project: bml1/seg2,      name: seg2 }
+          - { project: litefury_canfd, name: litefury_canfd }
     env:
       # go.tcl skips program.tcl (board programming) when CI is set.
       CI: "true"
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       # How Vivado runs is normally configured per machine in the runner's
       # .env file (written by ci/runner/install.sh). Repository variables, if
@@ -48,13 +55,13 @@ jobs:
           if [ -n "${{ vars.VIVADO_SETTINGS }}" ];     then echo "VIVADO_SETTINGS=${{ vars.VIVADO_SETTINGS }}"         >> "$GITHUB_ENV"; fi
 
       - name: Run go.tcl
-        working-directory: bml1/${{ matrix.project }}
+        working-directory: ${{ matrix.project }}
         run: |
-          ../../ci/vivado.sh -version | head -1
-          ../../ci/vivado.sh -mode batch -source go.tcl
+          "$GITHUB_WORKSPACE/ci/vivado.sh" -version | head -1
+          "$GITHUB_WORKSPACE/ci/vivado.sh" -mode batch -source go.tcl
 
       - name: Check results
-        working-directory: bml1/${{ matrix.project }}
+        working-directory: ${{ matrix.project }}
         run: |
           # Vivado can exit 0 after a start-up failure, so check the outputs.
           test -f top.bit || { echo "::error::top.bit was not produced"; exit 1; }
@@ -70,10 +77,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vivado-${{ matrix.project }}
+          name: vivado-${{ matrix.name }}
           if-no-files-found: ignore
           path: |
-            bml1/${{ matrix.project }}/top.bit
-            bml1/${{ matrix.project }}/top.bin
-            bml1/${{ matrix.project }}/reports/
-            bml1/${{ matrix.project }}/vivado.log
+            ${{ matrix.project }}/top.bit
+            ${{ matrix.project }}/top.bin
+            ${{ matrix.project }}/reports/
+            ${{ matrix.project }}/vivado.log
+            ${{ matrix.project }}/build/**/runme.log

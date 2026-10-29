@@ -7,3 +7,4 @@ reports/
 *.bit
 routed_design.dcp
 clockinfo.txt
+.claude/settings.local.json

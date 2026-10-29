@@ -6,7 +6,9 @@ Hobby FPGA projects, mostly targeting a Basys 3 board (Artix-7 `xc7a35tcpg236-1`
 |--------------|----------------------------------------------------------------|--------------------------|
 | `bml1/ch4`   | LED shift register built from UNISIM primitives (VHDL + Verilog) | `cd bml1/ch4 && ./go.sh` |
 | `bml1/ch5`   | Same design in behavioural RTL with a 1 Hz pulse               | `cd bml1/ch5 && ./go.sh` |
+| `bml1/seg`, `bml1/seg2` | Seven-segment display, switches and buttons (`seg2` counts button presses per second) | `cd bml1/seg2 && ./go.sh` |
 | `can_timing` | CAN message timing model and `can_sim` testbench (sim only)    | Vivado project `can_timing/project_1` |
+| `litefury_canfd` | CAN FD PCIe card on a LiteFury, SocketCAN via the mainline driver | `cd litefury_canfd && ./go.sh` (see its README) |
 | `src`        | Early BCD counter experiments (not currently building)         |                          |
 
 `go.sh` runs `go.tcl` in Vivado batch mode: synthesis, place, route, reports,
@@ -163,3 +165,9 @@ runner's `.env` file:
 ```sh
 LD_LIBRARY_PATH=<vivado-install>/Vivado/lib/lnx64.o/Ubuntu/24
 ```
+
+On such an OS Vivado also spills part of `/etc/os-release` into the comment
+banner of every HDL file it generates, which breaks synthesis of block
+designs with `syntax error near 'VERSION_ID'`. `litefury_canfd/go.tcl`
+repairs the generated files (see `litefury_canfd/fix_banners.tcl`); the
+other projects generate no HDL and are unaffected.
