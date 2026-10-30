@@ -1,0 +1,14 @@
+﻿Designator,Quantity,Value,Footprint,Package,MPN,Manufacturer,Mount_Type,Description
+U1,1,SN65HVD78,SOIC-8_3.9x4.9mm_P1.27mm,,SN65HVD78D,Texas Instruments,smt,3.3 V 50 Mbps half-duplex RS-485 transceiver (alt. ADM3065E)
+C1,1,100n,C_0603_1608Metric,,CC0603KRX7R9BB104,Yageo,smt,decoupling
+R1,1,100,R_0603_1608Metric,,RC0603FR-07100RL,Yageo,smt,optional bus termination (with JP1)
+R2,1,49.9,R_0603_1608Metric,,RC0603FR-0749R9L,Yageo,smt,SMA source termination
+R3,1,1k,R_0603_1608Metric,,RC0603FR-071KL,Yageo,smt,activity LED
+R4,1,10k,R_0603_1608Metric,,RC0603FR-0710KL,Yageo,smt,driver off by default
+"R5, R6, R7, R8",4,33,R_0603_1608Metric,,RC0603FR-0733RL,Yageo,smt,
+D1,1,GREEN,LED_0603_1608Metric,,APT1608SGC,Kingbright,smt,lit while the line is active
+J1,1,Pmod,PinHeader_2x06_P2.54mm_Horizontal,,PRPC006DBAN-M71,Sullins,tht,Pmod host connector (right angle male)
+J2,1,T1S bus,"TerminalBlock_Phoenix_PT-1,5-2-3.5-H_1x02_P3.50mm_Horizontal",,1984617,Phoenix Contact,tht,10BASE-T1S pair
+J3,1,T1S bus,PinHeader_1x03_P2.54mm_Vertical,,PRPC003SAAN-RC,Sullins,tht,"10BASE-T1S pair, header"
+J4,1,TRIG0,SMA_Amphenol_132289_EdgeMount,,132289,Amphenol RF,smt,trigger 0 to scope
+J5,1,TRIG,PinHeader_1x05_P2.54mm_Vertical,,PRPC005SAAN-RC,Sullins,tht,trigger outputs

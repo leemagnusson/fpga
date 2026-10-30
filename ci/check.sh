@@ -13,6 +13,8 @@
 #   * can_timing         : run the can_sim testbench in GHDL.
 #   * litefury_canfd     : analyse the glue RTL, and the CTU CAN FD core if the
 #                          submodule is checked out (the PCIe IP needs Vivado).
+#   * t1s_trigger        : run the self-checking testbench in GHDL and
+#                          synthesise the top level for Artix-7.
 #   * loose tutorial files in bml1/ : analyse only.
 #
 # Not checked (known broken scratch files):
@@ -88,6 +90,19 @@ if [ -f "$can_src/slf_rtl.yml" ]; then
 else
     echo "note: CTU CAN FD core not present ($can_src); run 'git submodule update --init' to check it too"
 fi
+
+group "t1s_trigger: run tb_top (GHDL)"
+t1s_rtl="t1s_trigger/rtl/t1s_pkg.vhd t1s_trigger/rtl/dme_rx.vhd t1s_trigger/rtl/t1s_pcs_rx.vhd \
+    t1s_trigger/rtl/plca_track.vhd t1s_trigger/rtl/pulse_stretch.vhd t1s_trigger/rtl/seg7.vhd \
+    t1s_trigger/rtl/t1s_monitor.vhd t1s_trigger/rtl/top.vhd"
+# shellcheck disable=SC2086
+ghdl -a $GHDL_FLAGS $t1s_rtl t1s_trigger/sim/tb_top.vhd
+ghdl --elab-run $GHDL_FLAGS tb_top --ieee-asserts=disable-at-0 --assert-level=error
+endgroup
+
+group "t1s_trigger: synthesise top for Artix-7 (GHDL + Yosys)"
+synth_stat "ghdl $GHDL_FLAGS $t1s_rtl -e top; synth_xilinx -top top"
+endgroup
 
 group "bml1 loose tutorial sources: analyse only"
 for f in bml1/top2.v bml1/top3.v; do
