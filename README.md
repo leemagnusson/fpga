@@ -9,6 +9,7 @@ Hobby FPGA projects, mostly targeting a Basys 3 board (Artix-7 `xc7a35tcpg236-1`
 | `bml1/seg`, `bml1/seg2` | Seven-segment display, switches and buttons (`seg2` counts button presses per second) | `cd bml1/seg2 && ./go.sh` |
 | `can_timing` | CAN message timing model and `can_sim` testbench (sim only)    | Vivado project `can_timing/project_1` |
 | `litefury_canfd` | CAN FD PCIe card on a LiteFury, SocketCAN via the mainline driver | `cd litefury_canfd && ./go.sh` (see its README) |
+| `t1s_trigger` | 10BASE-T1S bus monitor with switch-selected scope trigger outputs, plus the KiCad tap Pmod | `cd t1s_trigger && ./go.sh` (see its README) |
 | `src`        | Early BCD counter experiments (not currently building)         |                          |
 
 `go.sh` runs `go.tcl` in Vivado batch mode: synthesis, place, route, reports,
