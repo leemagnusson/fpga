@@ -62,7 +62,7 @@ set_property -dict { PACKAGE_PIN G2  IOSTANDARD LVCMOS33 SLEW FAST DRIVE 8 } [ge
 set_property -dict { PACKAGE_PIN H1  IOSTANDARD LVCMOS33 SLEW FAST DRIVE 8 } [get_ports ja7_trig3]
 set_property -dict { PACKAGE_PIN K2  IOSTANDARD LVCMOS33 } [get_ports ja8_de]
 set_property -dict { PACKAGE_PIN H2  IOSTANDARD LVCMOS33 } [get_ports ja9_txd]
-set_property -dict { PACKAGE_PIN G3  IOSTANDARD LVCMOS33 } [get_ports ja10_carrier]
+set_property -dict { PACKAGE_PIN G3  IOSTANDARD LVCMOS33 } [get_ports ja10_rxn]
 
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]

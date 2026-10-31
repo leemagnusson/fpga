@@ -53,21 +53,21 @@ def pins_of(sym):
 # ---------------------------------------------------------------- placement
 # ref: (x, y)  all symbols at rotation 0
 def g(n): return round(n * 1.27, 2)   # schematic grid units (1.27 mm)
-POS = {'U1': (g(70), g(70)), 'J1': (g(32), g(56)), 'J2': (g(102), g(48)), 'J3': (g(102), g(60)), 'R1': (g(118), g(52)),
+POS = {'U1': (g(70), g(70)), 'U2': (g(70), g(124)), 'C2': (g(100), g(130)), 'J1': (g(32), g(56)), 'J2': (g(102), g(48)), 'J3': (g(102), g(60)), 'R1': (g(118), g(52)),
        'JP1': (g(130), g(64)), 'C1': (g(56), g(96)), 'R4': (g(48), g(80)), 'R3': (g(94), g(88)), 'D1': (g(82), g(100)),
        'R2': (g(146), g(52)), 'J4': (g(158), g(68)), 'R5': (g(170), g(52)), 'R6': (g(178), g(52)), 'R7': (g(186), g(52)),
-       'R8': (g(194), g(52)), 'J5': (g(206), g(80)), 'TP1': (g(56), g(112))}
+       'R8': (g(194), g(52)), 'J5': (g(206), g(80))}
 # explicit routes for pins whose default stub would collide: list of waypoints after the pin
 ROUTE = {
     ('U1', '2'):  [(-12.70, 0), (0, 20.32)],     # ~RE -> GND, around the DE/DI labels
-    ('J1', '9'):  [(-10.16, 0), (0, 10.16)],     # GND
-    ('J1', '11'): [(-7.62, 0), (0, 5.08)],       # +3V3 (symbol rotated 180, below)
-    ('J1', '10'): [(10.16, 0), (0, 10.16)],
-    ('J1', '12'): [(7.62, 0), (0, 5.08)],
+    ('U2', '2'):  [(-15.24, 0), (0, 20.32)],     # ~RE, DE, DI all GND: three grounds side by side
+    ('U2', '3'):  [(-10.16, 0), (0, 17.78)],
+    ('J1', '3'):  [(-12.70, 0), (0, 7.62)],      # GND, clear of the signal labels below it
+    ('J1', '4'):  [(12.70, 0), (0, 7.62)],
     ('J3', '3'):  [(-7.62, 0), (0, 7.62)],
     ('J5', '5'):  [(-7.62, 0), (0, 7.62)],
 }
-POWER_ROT = {('J1', '11'): 180, ('J1', '12'): 180}
+POWER_ROT = {}
 
 items = []     # schematic body entries (lists)
 pwr_n = 0
@@ -75,7 +75,7 @@ pwr_n = 0
 def sym_instance(lib_id, ref, value, footprint, x, y, rot, uid_key):
     sym = get_lib_symbol(lib_id)
     node = [Sym('symbol'), [Sym('lib_id'), lib_id], [Sym('at'), x, y, rot], [Sym('unit'), 1],
-            [Sym('exclude_from_sim'), Sym('no')], [Sym('in_bom'), Sym('no' if ref in ('JP1', 'TP1') else 'yes')], [Sym('on_board'), Sym('yes')],
+            [Sym('exclude_from_sim'), Sym('no')], [Sym('in_bom'), Sym('yes')], [Sym('on_board'), Sym('yes')],
             [Sym('dnp'), Sym('no')], [Sym('uuid'), uid(uid_key)]]
     import math
     th = math.radians(rot)
@@ -158,9 +158,9 @@ for lib_id, s in libsyms.items():
     lib_symbols.append(s2)
 sch = [Sym('kicad_sch'), [Sym('version'), 20250114], [Sym('generator'), 'eeschema'], [Sym('generator_version'), '9.0'],
        [Sym('uuid'), ROOT], [Sym('paper'), 'A4'],
-       [Sym('title_block'), [Sym('title'), '10BASE-T1S tap Pmod'], [Sym('date'), '2026-10-30'], [Sym('rev'), 'A'],
-        [Sym('comment'), 1, 'RS-485 receiver as a high-impedance tap on a 10BASE-T1S bus, four trigger outputs'],
-        [Sym('comment'), 2, 'Pmod: IO1=RX IO2..4=TRIG0..2 IO7=TRIG3 IO8=DE IO9=TXD IO10=spare']],
+       [Sym('title_block'), [Sym('title'), '10BASE-T1S tap Pmod'], [Sym('date'), '2026-10-31'], [Sym('rev'), 'C'],
+        [Sym('comment'), 1, 'Two RS-485 receivers, A/B swapped: three-level tap on a 10BASE-T1S bus, 4 triggers'],
+        [Sym('comment'), 2, 'Pmod: IO1=RX (line negative) IO2..4=TRIG0..2 IO7=TRIG3 IO8=DE IO9=TXD IO10=RXN (line positive)']],
        lib_symbols] + items + [[Sym('sheet_instances'), [Sym('path'), '/', [Sym('page'), '1']]], [Sym('embedded_fonts'), Sym('no')]]
 open(os.path.join(OUT, PROJECT + '.kicad_sch'), 'w').write(dumps(sch) + '\n')
 

@@ -1,7 +1,8 @@
 ﻿Designator,Quantity,Value,Footprint,Package,MPN,Manufacturer,Mount_Type,Description
-U1,1,SN65HVD78,SOIC-8_3.9x4.9mm_P1.27mm,,SN65HVD78D,Texas Instruments,smt,3.3 V 50 Mbps half-duplex RS-485 transceiver (alt. ADM3065E)
-C1,1,100n,C_0603_1608Metric,,CC0603KRX7R9BB104,Yageo,smt,decoupling
+"U1, U2",2,SN65HVD78,SOIC-8_3.9x4.9mm_P1.27mm,,SN65HVD78D,Texas Instruments,smt,3.3 V 50 Mbps half-duplex RS-485 transceiver (alt. ADM3065E)
+"C1, C2",2,100n,C_0603_1608Metric,,CC0603KRX7R9BB104,Yageo,smt,decoupling U1
 R1,1,100,R_0603_1608Metric,,RC0603FR-07100RL,Yageo,smt,optional bus termination (with JP1)
+JP1,1,TERM,PinHeader_1x02_P2.54mm_Vertical,,PRPC002SAAN-RC,Sullins,tht,termination jumper: shunt fitted = 100 R (R1) across A/B
 R2,1,49.9,R_0603_1608Metric,,RC0603FR-0749R9L,Yageo,smt,SMA source termination
 R3,1,1k,R_0603_1608Metric,,RC0603FR-071KL,Yageo,smt,activity LED
 R4,1,10k,R_0603_1608Metric,,RC0603FR-0710KL,Yageo,smt,driver off by default

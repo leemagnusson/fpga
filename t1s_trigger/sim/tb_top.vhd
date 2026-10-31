@@ -21,7 +21,15 @@ architecture sim of tb_top is
     constant HALF : time := 40 ns;     -- half a 12.5 MBd bit cell
 
     signal clk  : std_logic := '0';
-    signal line : std_logic := '1';    -- receiver output idles high (fail-safe)
+    -- Line model: pol is the polarity being driven ('1' = A above B), driving
+    -- says whether anyone drives. The two fail-safe receivers on the Pmod turn
+    -- that into line_n (low while negative) and line_p (low while positive);
+    -- both idle high. Each transmission starts with the opposite polarity from
+    -- the previous one so both cases are exercised.
+    signal pol      : std_logic := '0';
+    signal driving  : std_logic := '0';
+    signal start_pol : std_logic := '0';
+    signal line_n, line_p : std_logic;
     signal done : boolean := false;
 
     -- core under test
@@ -43,7 +51,7 @@ architecture sim of tb_top is
     signal seg : std_logic_vector(6 downto 0);
     signal dp  : std_logic;
     signal an  : std_logic_vector(3 downto 0);
-    signal trig0, trig1, trig2, trig3, de, txd, car : std_logic;
+    signal trig0, trig1, trig2, trig3, de, txd : std_logic;
     signal n_trig0 : natural := 0;
     signal trig0_width : time := 0 ns;
     signal trig0_rise  : time := 0 ns;
@@ -59,10 +67,12 @@ architecture sim of tb_top is
     end function;
 begin
     clk <= not clk after 5 ns when not done else '0';
+    line_n <= '1' when driving = '0' else pol;
+    line_p <= '1' when driving = '0' else not pol;
 
     dut_core : entity work.t1s_monitor
         port map (
-            clk => clk, rx_i => line, sel_id => sel_id,
+            clk => clk, rx_i => line_n, rxn_i => line_p, sel_id => sel_id,
             ev_beacon => ev_beacon, ev_commit => ev_commit, ev_ssd => ev_ssd,
             ev_sfd => ev_sfd, ev_esd_ok => ev_esd_ok, ev_esd_err => ev_esd_err,
             ev_esd_jab => ev_esd_jab, ev_burst => ev_burst, ev_crc_err => ev_crc_err,
@@ -75,9 +85,9 @@ begin
             clk => clk, sw => sw, led => led,
             btnC => '0', btnU => '0', btnD => '0', btnL => '0', btnR => '0',
             seg => seg, dp => dp, an => an,
-            ja1_rx => line, ja2_trig0 => trig0, ja3_trig1 => trig1,
+            ja1_rx => line_n, ja2_trig0 => trig0, ja3_trig1 => trig1,
             ja4_trig2 => trig2, ja7_trig3 => trig3, ja8_de => de, ja9_txd => txd,
-            ja10_carrier => car);
+            ja10_rxn => line_p);
 
     -- count every event pulse
     process (clk)
@@ -138,10 +148,10 @@ begin
         procedure send_sym(s : std_logic_vector(4 downto 0)) is
         begin
             for i in 0 to 4 loop
-                line <= not line;
+                pol <= not pol; driving <= '1';
                 wait for HALF;
                 if s(i) = '1' then
-                    line <= not line;
+                    pol <= not pol; driving <= '1';
                 end if;
                 wait for HALF;
             end loop;
@@ -150,10 +160,10 @@ begin
         procedure send_raw_bits(b : std_logic_vector) is   -- b(0) first
         begin
             for i in b'low to b'high loop
-                line <= not line;
+                pol <= not pol; driving <= '1';
                 wait for HALF;
                 if b(i) = '1' then
-                    line <= not line;
+                    pol <= not pol; driving <= '1';
                 end if;
                 wait for HALF;
             end loop;
@@ -178,6 +188,9 @@ begin
 
         procedure silence(t : time) is
         begin
+            driving <= '0';
+            start_pol <= not start_pol;
+            pol <= start_pol;          -- so the first toggle gives the new start polarity
             wait for t;
         end procedure;
 
@@ -348,8 +361,8 @@ begin
         -- 13. a DME timing violation inside a packet
         packet_start;
         send_byte(x"01");
-        line <= not line; wait for HALF;      -- half cell ...
-        line <= not line; wait for 2 * HALF;  -- ... then a full cell from mid-cell
+        pol <= not pol; driving <= '1'; wait for HALF;      -- half cell ...
+        pol <= not pol; driving <= '1'; wait for 2 * HALF;  -- ... then a full cell from mid-cell
         send_byte(x"02");
         silence(1 us);
         check("proto_err (dme violation)", n_proto_err, 3);

@@ -7,8 +7,8 @@ start, SFD, end-of-stream delimiters, CRC errors, coding errors, or a packet
 from a chosen node. The 16 switches choose which events fire the trigger.
 
 ```
-T1S bus --(tap stub)--> pmod/ (RS-485 receiver) --> JA1 --> dme_rx --> t1s_pcs_rx --> events --+--> trigger pulses (JA2..JA7)
-                                                                        plca_track -------------+--> LEDs, 7-segment counters
+T1S bus --(tap stub)--> pmod/ (two RS-485 receivers) --> JA1, JA10 --> dme_rx --> t1s_pcs_rx --> events --+--> trigger pulses (JA2..JA7)
+                                                                                   plca_track -------------+--> LEDs, 7-segment counters
 ```
 
 The decoder works from the raw line signal, not from a PHY, so it sees
@@ -17,13 +17,16 @@ everything including beacons and commits, which a PHY's MII hides.
 ## Hardware
 
 - Basys 3 (Artix-7 XC7A35T, 100 MHz oscillator).
-- The tap Pmod in [`pmod/`](pmod/README.md) on connector **JA**. It is an
-  RS-485 receiver (SN65HVD78) used as a high-impedance differential-to-logic
-  converter: 10BASE-T1S drives about ±1 V differential, well above the
-  receiver's ±200 mV thresholds, and its fail-safe output idles high during
-  bus silence so there is no chatter. Keep the stub from the bus to the Pmod
-  short (a few cm) and do not close the termination jumper unless the Pmod is
-  the physical end of the bus.
+- The tap Pmod in [`pmod/`](pmod/README.md) on connector **JA**. It is a
+  pair of RS-485 receivers (SN65HVD78) used as high-impedance
+  differential-to-logic converters, one with A and B swapped: 10BASE-T1S
+  drives about ±1 V differential, well above their thresholds, and their
+  fail-safe outputs idle high during bus silence so there is no chatter. RX
+  (JA1) goes low while the line is negative, RXN (JA10) while it is positive,
+  so the FPGA sees negative / positive / idle and every edge on the wire,
+  including the first one of a transmission whichever polarity it starts
+  with. Keep the stub from the bus to the Pmod short (a few cm) and leave the
+  termination shunt (JP1) off unless the Pmod is the physical end of the bus.
 - Trigger outputs are 3.3 V logic pulses on the Pmod's SMA (TRIG0) and pin
   header (TRIG0..3).
 
@@ -55,14 +58,14 @@ Pmod JA outputs:
 
 | Pin  | Signal   | Meaning                                                   |
 |------|----------|-----------------------------------------------------------|
-| JA1  | RX       | input from the tap receiver                               |
+| JA1  | RX       | input from receiver U1, low while the line is negative    |
 | JA2  | TRIG0    | switch-selected trigger (SMA on the Pmod)                 |
 | JA3  | TRIG1    | BEACON, 100 ns                                            |
 | JA4  | TRIG2    | SSD (packet start), 100 ns                                |
 | JA7  | TRIG3    | any error (ESDERR, ESDJAB, CRC, protocol, runt), 100 ns   |
 | JA8  | DE       | RS-485 driver enable, held low                            |
 | JA9  | TXD      | RS-485 driver data, unused                                |
-| JA10 | CARRIER  | level: transitions present on the line (not SILENCE)      |
+| JA10 | RXN      | input from receiver U2, low while the line is positive    |
 
 Seven-segment display: BTNU/BTND cycle the mode, the lit decimal point shows
 which (rightmost = mode 0). BTNC clears the error counters.
@@ -80,16 +83,21 @@ Events are recognised when the symbol that defines them is complete, so the
 pulse comes a fixed delay after the event on the wire: about 0.45 µs after the
 first edge of a beacon (one 5B symbol plus pipeline), about 30 ns after the
 last edge of an SSD, SFD or ESD symbol. CRC errors are known at ESDOK, i.e. at
-the end of the packet. Transmissions ending in a 0 bit are only complete
-once the line goes silent, which adds 140 ns for those. The delay is constant,
-so set the scope's trigger delay once.
+the end of the packet. The last bit of a transmission has no edge after it;
+it is complete about 60 ns after the line is released, which the two receivers
+see directly, so events that end a transmission (ESD, heartbeat) come 100 to
+140 ns after the last edge on the wire. The delay is constant, so set the
+scope's trigger delay once.
 
 ## How it decodes
 
-- `rtl/dme_rx.vhd`: samples the line at 100 MHz and measures the time between
-  edges. Every 80 ns bit cell starts with a transition; a 1 has another one
-  40 ns later. The first edge after SILENCE (160 ns without edges) is a symbol
-  boundary.
+- `rtl/dme_rx.vhd`: samples both receiver outputs at 100 MHz, takes an edge
+  whenever either one asserts (exactly one does for every transition on the
+  wire), and measures the time between edges. Every 80 ns bit cell starts
+  with a transition; a 1 has another one 40 ns later. Both outputs high for
+  30 ns means the line was released, which closes the last cell and is
+  SILENCE; the first edge after SILENCE is a symbol boundary. A line held at
+  one level for 160 ns counts as silent too.
 - `rtl/t1s_pcs_rx.vhd`: assembles 5B symbols (LSB first) and follows the
   transmission: `J J H H`, nine discarded symbols while the x^17+x^14+1
   self-synchronising descrambler locks, preamble nibbles 5 until the SFD
@@ -109,6 +117,9 @@ event to the protocol-error event.
 Known limits: node IDs assume the default `to_timer` of 32 bit times and a
 node that pauses within a burst for longer than 160 ns is counted as the next
 ID; on a CSMA/CD (non-PLCA) segment node IDs are meaningless (LED10 off).
+Symbol alignment trusts the first edge after silence, which is why the tap
+has two receivers (rev A/B had one and missed the first edge of transmissions
+starting with a positive half bit; see Polarity in `pmod/README.md`).
 Data-dependent triggers (addresses, payload patterns) are not implemented.
 
 ## Build and test
@@ -121,7 +132,8 @@ docker run --rm -v "$PWD/..":/src -w /src/t1s_trigger hdlc/ghdl:yosys sim/run.sh
 ```
 
 `sim/tb_top.vhd` contains a behavioural 10BASE-T1S transmitter (DME, 4B/5B,
-scrambler, FCS) and exercises beacons, transmit-opportunity counting, commit,
+scrambler, FCS) driving a model of the two fail-safe receivers, alternates the
+polarity each transmission starts with, and exercises beacons, transmit-opportunity counting, commit,
 good/bad FCS, ESDERR, ESDJAB, bursts, runts, invalid symbols, truncated
 transmissions, DME violations, heartbeat and the switch gating and pulse
 widths. It is run by `ci/check.sh`; the Vivado workflow builds the bitstream.

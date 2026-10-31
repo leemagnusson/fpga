@@ -7,7 +7,8 @@ use work.t1s_pkg.all;
 entity t1s_monitor is
     port (
         clk          : in  std_logic;
-        rx_i         : in  std_logic;             -- line level from the Pmod receiver
+        rx_i         : in  std_logic;             -- Pmod receiver U1: low while the line is negative
+        rxn_i        : in  std_logic;             -- Pmod receiver U2 (A/B swapped): low while the line is positive
         sel_id       : in  unsigned(7 downto 0);  -- node ID for ev_node
         -- events (one clock each)
         ev_beacon    : out std_logic;
@@ -41,7 +42,7 @@ architecture rtl of t1s_monitor is
 begin
     u_dme : entity work.dme_rx
         port map (
-            clk => clk, rx_i => rx_i,
+            clk => clk, rx_i => rx_i, rxn_i => rxn_i,
             bit_valid => bit_valid, bit_val => bit_val,
             start => start, silent => silent, violation => violation);
 

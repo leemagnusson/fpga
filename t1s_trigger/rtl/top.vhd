@@ -15,14 +15,14 @@ entity top is
         dp         : out std_logic;
         an         : out std_logic_vector(3 downto 0);
         -- Pmod JA (t1s_tap Pmod)
-        ja1_rx      : in  std_logic;   -- receiver output (line level)
+        ja1_rx      : in  std_logic;   -- receiver U1 output (low: line negative)
         ja2_trig0   : out std_logic;   -- switch-selected trigger
         ja3_trig1   : out std_logic;   -- beacon
         ja4_trig2   : out std_logic;   -- SSD (packet start)
         ja7_trig3   : out std_logic;   -- any error
         ja8_de      : out std_logic;   -- RS-485 driver enable (kept off)
         ja9_txd     : out std_logic;   -- RS-485 driver data (unused)
-        ja10_carrier : out std_logic   -- line active (not silent)
+        ja10_rxn    : in  std_logic    -- receiver U2 output (low: line positive)
     );
 end entity top;
 
@@ -64,7 +64,7 @@ begin
 
     u_mon : entity work.t1s_monitor
         port map (
-            clk => clk, rx_i => ja1_rx, sel_id => sel_id,
+            clk => clk, rx_i => ja1_rx, rxn_i => ja10_rxn, sel_id => sel_id,
             ev_beacon => ev_beacon, ev_commit => ev_commit, ev_ssd => ev_ssd,
             ev_sfd => ev_sfd, ev_esd_ok => ev_esd_ok, ev_esd_err => ev_esd_err,
             ev_esd_jab => ev_esd_jab, ev_burst => ev_burst, ev_crc_err => ev_crc_err,
@@ -99,7 +99,6 @@ begin
 
     ja8_de       <= '0';
     ja9_txd      <= '0';
-    ja10_carrier <= carrier;
 
     -- ---- LEDs ----------------------------------------------------------------
     g_led : for i in 0 to 9 generate
