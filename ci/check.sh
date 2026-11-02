@@ -94,10 +94,16 @@ fi
 group "t1s_trigger: run tb_top (GHDL)"
 t1s_rtl="t1s_trigger/rtl/t1s_pkg.vhd t1s_trigger/rtl/dme_rx.vhd t1s_trigger/rtl/t1s_pcs_rx.vhd \
     t1s_trigger/rtl/plca_track.vhd t1s_trigger/rtl/pulse_stretch.vhd t1s_trigger/rtl/seg7.vhd \
-    t1s_trigger/rtl/t1s_monitor.vhd t1s_trigger/rtl/top.vhd"
+    t1s_trigger/rtl/t1s_monitor.vhd t1s_trigger/rtl/oled_font_pkg.vhd t1s_trigger/rtl/bcd_rate.vhd \
+    t1s_trigger/rtl/trig_screen.vhd t1s_trigger/rtl/oled_ssd1331.vhd t1s_trigger/rtl/oled_status.vhd \
+    t1s_trigger/rtl/top.vhd"
 # shellcheck disable=SC2086
-ghdl -a $GHDL_FLAGS $t1s_rtl t1s_trigger/sim/tb_top.vhd
+ghdl -a $GHDL_FLAGS $t1s_rtl t1s_trigger/sim/tb_top.vhd t1s_trigger/sim/tb_oled.vhd
 ghdl --elab-run $GHDL_FLAGS tb_top --ieee-asserts=disable-at-0 --assert-level=error
+endgroup
+
+group "t1s_trigger: run tb_oled (GHDL), OLED status display"
+ghdl --elab-run $GHDL_FLAGS tb_oled --ieee-asserts=disable-at-0 --assert-level=error -gPPM_FILE=/dev/null
 endgroup
 
 group "t1s_trigger: synthesise top for Artix-7 (GHDL + Yosys)"

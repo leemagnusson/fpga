@@ -29,6 +29,8 @@ everything including beacons and commits, which a PHY's MII hides.
   termination shunt (JP1) off unless the Pmod is the physical end of the bus.
 - Trigger outputs are 3.3 V logic pulses on the Pmod's SMA (TRIG0) and pin
   header (TRIG0..3).
+- Optional: a Digilent Pmod OLEDrgb on connector **JB** shows every trigger
+  with its rate (see below).
 
 ## Controls
 
@@ -77,6 +79,37 @@ which (rightmost = mode 0). BTNC clears the error counters.
 | 2    | CRC errors since reset              |
 | 3    | protocol errors + runts since reset |
 
+## OLED status screen (Pmod OLEDrgb on JB)
+
+The 96 x 64 display lists all the switch-selectable triggers with the number
+of times each fired in the last second (five digits, saturating at 99999).
+An entry is white when its switch is on and grey when it is off, so the
+screen shows both what TRIG0 is currently set to fire on and what is
+happening on the bus. It refreshes about 60 times a second; the counts step
+once a second.
+
+```
+100NS ID=5 PLCA     TRIG0 pulse width (SW10), node ID (SW15..12),
+BCN12345 JAB    2   PLCA (green: beacons seen in the last 100 ms) or CSMA (grey)
+CMT    7 BRS    3
+SSD99999 CRC    4   BCN beacon, CMT commit, SSD packet start, SFD, EOK/EER/JAB
+SFD    0 PRT    5   end of packet ok/error/jabber, BRS burst, CRC CRC error,
+EOK   64 ID5   60   PRT protocol error or runt, ID5 packets from node 5 (SW11)
+EER    1 TRG99999   TRG: TRIG0 pulses actually produced (always cyan)
+ERR    8 HB     9   ERR: any error, as on JA7 (cyan); HB: heartbeat runs
+```
+
+The simulation in `sim/tb_oled.vhd` decodes the SPI stream and writes the
+frame to `sim/oled_frame.ppm`; `python3 sim/ppm2png.py sim/oled_frame.ppm
+frame.png` turns it into a picture (the layout above is from it).
+
+Wiring: Pmod OLEDrgb straight into JB (pin 1 = CS at JB1). The driver
+`rtl/oled_ssd1331.vhd` follows Digilent's power-up sequence (PMODEN, reset,
+init table, VCCEN, display on) and streams RGB565 pixels at 6.25 MHz; the
+text comes from `rtl/trig_screen.vhd` (5 x 7 font in `rtl/oled_font_pkg.vhd`,
+generated from ASCII art by `tools/gen_font.py`), the counts from
+`rtl/bcd_rate.vhd`.
+
 ## Trigger timing
 
 Events are recognised when the symbol that defines them is complete, so the
@@ -108,6 +141,7 @@ scope's trigger delay once.
   (32 bit times of silence each, or one per transmission) to attribute each
   packet to a PLCA node ID.
 - `rtl/top.vhd`: switches, LEDs, display, pulse stretching.
+- `rtl/oled_status.vhd`: the OLED subsystem (rate counters, text screen, SSD1331 driver).
 
 Constants (symbol codes, timings, PLCA defaults) are in `rtl/t1s_pkg.vhd`
 with their sources. The ESDJAB symbol value is the one thing not confirmed
@@ -128,7 +162,7 @@ Data-dependent triggers (addresses, payload patterns) are not implemented.
 cd t1s_trigger
 ./go.sh                                   # Vivado: synth, place, route, bitstream, program over JTAG
 CI=1 ./go.sh                              # build only
-docker run --rm -v "$PWD/..":/src -w /src/t1s_trigger hdlc/ghdl:yosys sim/run.sh   # testbench
+docker run --rm -v "$PWD/..":/src -w /src/t1s_trigger hdlc/ghdl:yosys sim/run.sh   # testbenches
 ```
 
 `sim/tb_top.vhd` contains a behavioural 10BASE-T1S transmitter (DME, 4B/5B,
@@ -136,7 +170,8 @@ scrambler, FCS) driving a model of the two fail-safe receivers, alternates the
 polarity each transmission starts with, and exercises beacons, transmit-opportunity counting, commit,
 good/bad FCS, ESDERR, ESDJAB, bursts, runts, invalid symbols, truncated
 transmissions, DME violations, heartbeat and the switch gating and pulse
-widths. It is run by `ci/check.sh`; the Vivado workflow builds the bitstream.
+widths. `sim/tb_oled.vhd` checks the OLED power-up sequence and the rendered
+frame. Both are run by `ci/check.sh`; the Vivado workflow builds the bitstream.
 
 ## Sources
 

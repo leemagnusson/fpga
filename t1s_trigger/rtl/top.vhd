@@ -4,8 +4,13 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.t1s_pkg.all;
+use work.trig_screen_pkg.all;
 
 entity top is
+    generic (
+        OLED_CLKS_PER_MS : positive := 100_000;   -- display timing (shrunk by the simulation)
+        OLED_SPI_DIV     : positive := 16
+    );
     port (
         clk        : in  std_logic;                      -- 100 MHz
         sw         : in  std_logic_vector(15 downto 0);
@@ -22,7 +27,15 @@ entity top is
         ja7_trig3   : out std_logic;   -- any error
         ja8_de      : out std_logic;   -- RS-485 driver enable (kept off)
         ja9_txd     : out std_logic;   -- RS-485 driver data (unused)
-        ja10_rxn    : in  std_logic    -- receiver U2 output (low: line positive)
+        ja10_rxn    : in  std_logic;   -- receiver U2 output (low: line positive)
+        -- Pmod JB (Digilent Pmod OLEDrgb)
+        jb1_cs      : out std_logic;
+        jb2_mosi    : out std_logic;
+        jb4_sck     : out std_logic;
+        jb7_dc      : out std_logic;
+        jb8_res     : out std_logic;
+        jb9_vccen   : out std_logic;
+        jb10_pmoden : out std_logic
     );
 end entity top;
 
@@ -57,6 +70,7 @@ architecture rtl of top is
     signal frames_ps, beacons_ps   : unsigned(15 downto 0) := (others => '0');
     signal crc_errs, proto_errs    : unsigned(15 downto 0) := (others => '0');
     signal mode      : unsigned(1 downto 0) := (others => '0');
+    signal oled_ev   : std_logic_vector(N_RATES - 1 downto 0);
     signal disp_val  : std_logic_vector(15 downto 0);
     signal disp_dp   : std_logic_vector(3 downto 0);
 begin
@@ -193,4 +207,14 @@ begin
 
     u_seg : entity work.seg7
         port map (clk => clk, value => disp_val, dp => disp_dp, seg => seg, dp_o => dp, an => an);
+
+    -- ---- OLED status screen (Pmod JB) -------------------------------------------
+    oled_ev <= ev_hb & any_err & trig_hit & cond(11) & cond(9 downto 0);
+
+    u_oled : entity work.oled_status
+        generic map (CLKS_PER_MS => OLED_CLKS_PER_MS, SPI_DIV => OLED_SPI_DIV)
+        port map (clk => clk, sec_tick => sec_tick, sw => sw, plca_synced => plca_synced,
+                  events => oled_ev, frame => open,
+                  cs_n => jb1_cs, mosi => jb2_mosi, sck => jb4_sck, dc => jb7_dc,
+                  res_n => jb8_res, vccen => jb9_vccen, pmoden => jb10_pmoden);
 end architecture rtl;

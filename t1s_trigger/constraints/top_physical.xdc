@@ -64,6 +64,15 @@ set_property -dict { PACKAGE_PIN K2  IOSTANDARD LVCMOS33 } [get_ports ja8_de]
 set_property -dict { PACKAGE_PIN H2  IOSTANDARD LVCMOS33 } [get_ports ja9_txd]
 set_property -dict { PACKAGE_PIN G3  IOSTANDARD LVCMOS33 } [get_ports ja10_rxn]
 
+# Pmod JB: Digilent Pmod OLEDrgb (SPI, 6.25 MHz)
+set_property -dict { PACKAGE_PIN A14 IOSTANDARD LVCMOS33 } [get_ports jb1_cs]
+set_property -dict { PACKAGE_PIN A16 IOSTANDARD LVCMOS33 } [get_ports jb2_mosi]
+set_property -dict { PACKAGE_PIN B16 IOSTANDARD LVCMOS33 } [get_ports jb4_sck]
+set_property -dict { PACKAGE_PIN A15 IOSTANDARD LVCMOS33 } [get_ports jb7_dc]
+set_property -dict { PACKAGE_PIN A17 IOSTANDARD LVCMOS33 } [get_ports jb8_res]
+set_property -dict { PACKAGE_PIN C15 IOSTANDARD LVCMOS33 } [get_ports jb9_vccen]
+set_property -dict { PACKAGE_PIN C16 IOSTANDARD LVCMOS33 } [get_ports jb10_pmoden]
+
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
