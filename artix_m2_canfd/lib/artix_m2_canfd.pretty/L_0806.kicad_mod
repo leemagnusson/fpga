@@ -75,4 +75,9 @@
 		(layer "F.CrtYd")
 		(uuid "84a1454b-e852-5fec-bef4-1a786641b1e7")
 	)
+	(model "${KICAD9_3DMODEL_DIR}/Inductor_SMD.3dshapes/L_Murata_DFE201610P.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

@@ -118,4 +118,9 @@
 		(layer "F.SilkS")
 		(uuid "e65f36af-b54d-59f9-acc7-a5aca52afe1d")
 	)
+	(model "${KICAD9_3DMODEL_DIR}/Package_TO_SOT_SMD.3dshapes/SOT-563.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

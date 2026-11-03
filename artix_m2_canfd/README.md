@@ -114,7 +114,10 @@ coupled pairs: Freerouting routes each net on its own.
 - `gen/escape.py`, `gen/fanout.py`, `gen/route.py`: BGA escapes, plane fan-out and the
   Freerouting round trip.
 - `lib/`: generated symbol and footprint libraries (project-local tables
-  `sym-lib-table` and `fp-lib-table` point at them).
+  `sym-lib-table` and `fp-lib-table` point at them). Footprints reference
+  the official KiCad 9 3D models (`KICAD9_3DMODEL_DIR`) where one matches
+  the land pattern; the oscillator, the FPGA, the small VSON and the Hirose
+  headers get plain box models written to `lib/artix_m2_canfd.3dshapes`.
 - `bom.csv`: references, values, manufacturer part numbers.
 
 The schematic is a labelled netlist: each part is drawn with a global
@@ -149,11 +152,10 @@ Review list, most important first:
    7 series boards, but I could not open UG482 to confirm the GTP value.
    Verify in UG482 "Termination resistor calibration circuit" before
    ordering.
-3. **Hirose DF52 footprint**: contact span and mechanical pad centres come
-   from the catalog table (6S: 4.0 / 6.4 / 7.0 mm); pad length, the row
-   offset of the mechanical pads and which side the cable enters are
-   assumed. Check against the DF52-6S-0.8H(21) drawing; the connectors are
-   placed so the cable exits off the end of the card.
+3. **Hirose DF52 footprint**: pad geometry now follows the KiCad library
+   footprint (drawn from the Hirose drawing); the connectors are placed so
+   the cable exits off the end of the card. Still worth a look at the
+   DF52-6S-0.8H(21) drawing before ordering.
 4. **Oscillator**: ECS-2520MV pad numbering is counter-clockwise from the
    chamfered corner; the footprint follows the datasheet land pattern.
    SiTime SiT8008 in 2520 is a drop-in if ECS is out of stock.

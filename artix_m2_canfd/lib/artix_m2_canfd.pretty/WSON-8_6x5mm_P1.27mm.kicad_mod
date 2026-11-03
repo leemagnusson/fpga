@@ -125,4 +125,9 @@
 		(layer "F.CrtYd")
 		(uuid "939a706c-f10f-5216-bf48-1aa26d902966")
 	)
+	(model "${KICAD9_3DMODEL_DIR}/Package_SON.3dshapes/WSON-8-1EP_6x5mm_P1.27mm_EP3.4x4.3mm.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

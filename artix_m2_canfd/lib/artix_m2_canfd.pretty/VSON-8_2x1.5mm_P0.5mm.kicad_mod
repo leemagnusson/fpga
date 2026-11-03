@@ -119,4 +119,9 @@
 		(layer "F.CrtYd")
 		(uuid "6e07bcf0-0689-59f9-9da3-f0903035246b")
 	)
+	(model "${KIPRJMOD}/lib/artix_m2_canfd.3dshapes/VSON-8_2x1.5mm_P0.5mm.wrl"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

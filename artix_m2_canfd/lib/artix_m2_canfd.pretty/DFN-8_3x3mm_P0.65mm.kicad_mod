@@ -125,4 +125,9 @@
 		(layer "F.CrtYd")
 		(uuid "d5463589-41ae-56b3-96bf-3304d70c6572")
 	)
+	(model "${KICAD9_3DMODEL_DIR}/Package_DFN_QFN.3dshapes/DFN-8-1EP_3x3mm_P0.65mm_EP1.55x2.4mm.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

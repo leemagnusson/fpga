@@ -75,4 +75,9 @@
 		(layer "F.CrtYd")
 		(uuid "ef208656-7bb2-5f17-a43d-4776d3385cbe")
 	)
+	(model "${KICAD9_3DMODEL_DIR}/Inductor_SMD.3dshapes/L_0402_1005Metric.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

@@ -339,7 +339,7 @@ def build(pkg_path):
         jp.append(Pin("MP", "MP", GND, side="R"))
         d.add(Part(ref, "DF52-6S-0.8H", "DF52_6", fp("Hirose_DF52-6S-0.8H"), jp,
                    mpn="DF52-6S-0.8H(21)", description=f"CAN buses {buses[0]} and {buses[1]}: H, L, GND each; 0.8 mm wire-to-board, 1.5 mm tall",
-                   sheet="can", place=(x, 78.3, 180, "F")))
+                   sheet="can", place=(x, 77.5, 180, "F")))
         d.parts[-1].zone = "fixed"
     # Feedback dividers, pull-ups and CAN terminations go on the back, which is
     # empty beyond the decoupling; this keeps the front rows short enough to

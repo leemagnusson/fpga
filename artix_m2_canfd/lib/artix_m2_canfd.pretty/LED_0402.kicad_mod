@@ -82,4 +82,9 @@
 		(layer "F.CrtYd")
 		(uuid "9dd67d5a-06ef-582d-b3de-d2e8c9d22d45")
 	)
+	(model "${KICAD9_3DMODEL_DIR}/LED_SMD.3dshapes/LED_0402_1005Metric.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

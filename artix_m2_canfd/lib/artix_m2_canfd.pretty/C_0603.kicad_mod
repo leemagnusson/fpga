@@ -75,4 +75,9 @@
 		(layer "F.CrtYd")
 		(uuid "b878f352-1fd9-53cd-9fc0-023ab4ac5fdd")
 	)
+	(model "${KICAD9_3DMODEL_DIR}/Capacitor_SMD.3dshapes/C_0603_1608Metric.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

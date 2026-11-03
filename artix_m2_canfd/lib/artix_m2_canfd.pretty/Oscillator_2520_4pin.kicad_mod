@@ -83,4 +83,9 @@
 		(layer "F.CrtYd")
 		(uuid "2351977f-4ec8-5440-ac6e-74f6010acd64")
 	)
+	(model "${KIPRJMOD}/lib/artix_m2_canfd.3dshapes/Oscillator_2520_4pin.wrl"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

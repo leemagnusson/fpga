@@ -2014,4 +2014,9 @@
 		(layer "F.CrtYd")
 		(uuid "f4a37093-db1a-556f-8ce3-5e9cc5eb99d8")
 	)
+	(model "${KIPRJMOD}/lib/artix_m2_canfd.3dshapes/Xilinx_CSG325.wrl"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )
