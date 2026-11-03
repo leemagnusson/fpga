@@ -1,0 +1,71 @@
+[*] GTKWave save file for tb_top: gtkwave sim/tb_top.ghw sim/tb_top.gtkw
+[dumpfile] "sim/tb_top.ghw"
+[timestart] 0
+[size] 1600 900
+[pos] -1 -1
+*-27.000000 12345000000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] top.
+[treeopen] top.tb_top.
+[treeopen] top.tb_top.dut_core.
+[sst_width] 300
+[signals_width] 260
+[sst_expanded] 1
+[sst_vpaned_height] 350
+@200
+-line (two fail-safe receivers, low = driven)
+@28
+top.tb_top.line_p
+top.tb_top.line_n
+@200
+-DME decoder
+@28
+top.tb_top.dut_core.u_dme.start
+top.tb_top.dut_core.u_dme.bit_valid
+top.tb_top.dut_core.u_dme.bit_val
+top.tb_top.dut_core.u_dme.violation
+top.tb_top.dut_core.u_dme.silent
+@200
+-PCS
+@28
+top.tb_top.dut_core.u_pcs.state
+@2028
+^1 sim/t1s_symbols.txt
+top.tb_top.dut_core.u_pcs.sym_q[4:0]
+@28
+top.tb_top.dut_core.u_pcs.sym_valid
+@22
+top.tb_top.dut_core.u_pcs.dnib_q[3:0]
+@28
+top.tb_top.dut_core.u_pcs.dnib_valid
+@22
+top.tb_top.dut_core.u_pcs.octets[15:0]
+top.tb_top.dut_core.tx_id[7:0]
+@200
+-events
+@28
+top.tb_top.dut_core.ev_beacon
+top.tb_top.dut_core.ev_commit
+top.tb_top.dut_core.ev_ssd
+top.tb_top.dut_core.ev_sfd
+top.tb_top.dut_core.ev_esd_ok
+top.tb_top.dut_core.ev_esd_err
+top.tb_top.dut_core.ev_esd_jab
+top.tb_top.dut_core.ev_burst
+top.tb_top.dut_core.ev_crc_err
+top.tb_top.dut_core.ev_runt
+top.tb_top.dut_core.ev_proto_err
+top.tb_top.dut_core.ev_hb
+top.tb_top.dut_core.ev_node
+top.tb_top.dut_core.plca_synced
+@200
+-Basys 3 top
+@28
+top.tb_top.trig0
+top.tb_top.trig1
+top.tb_top.trig2
+top.tb_top.trig3
+@22
+top.tb_top.sw[15:0]
+top.tb_top.led[15:0]
+[pattern_trace] 1
+[pattern_trace] 0

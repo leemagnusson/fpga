@@ -1,0 +1,34 @@
+[*] GTKWave save file for tb_oled: gtkwave sim/tb_oled.ghw sim/tb_oled.gtkw
+[dumpfile] "sim/tb_oled.ghw"
+[timestart] 0
+[size] 1600 700
+[pos] -1 -1
+*-24.000000 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] top.
+[treeopen] top.tb_oled.
+[sst_width] 300
+[signals_width] 260
+[sst_expanded] 1
+[sst_vpaned_height] 300
+@200
+-Pmod OLEDrgb
+@28
+top.tb_oled.pmoden
+top.tb_oled.res_n
+top.tb_oled.vccen
+top.tb_oled.cs_n
+top.tb_oled.dc
+top.tb_oled.sck
+top.tb_oled.mosi
+@200
+-driver
+@28
+top.tb_oled.dut.u_oled.state
+@22
+top.tb_oled.dut.u_oled.load_byte[7:0]
+top.tb_oled.dut.px_x[6:0]
+top.tb_oled.dut.px_y[5:0]
+top.tb_oled.dut.px_rgb[15:0]
+@28
+top.tb_oled.frame
+top.tb_oled.sec_tick

@@ -66,6 +66,13 @@ architecture rtl of t1s_pcs_rx is
 
     signal sym_sr    : std_logic_vector(4 downto 0) := (others => '0');
     signal bit_cnt   : unsigned(2 downto 0) := (others => '0');
+    -- for waveforms only: the last complete symbol and a pulse when it landed
+    -- (sym_sr fills bit by bit, so it only reads as a symbol every fifth bit).
+    -- Nothing uses them, synthesis drops them.
+    signal sym_q     : std_logic_vector(4 downto 0) := (others => '0');
+    signal sym_valid : std_logic := '0';
+    signal dnib_q    : std_logic_vector(3 downto 0) := (others => '0');  -- last descrambled nibble
+    signal dnib_valid : std_logic := '0';                                 -- (preamble, SFD, data)
     signal silent_d  : std_logic := '1';
 
     signal j_cnt     : unsigned(1 downto 0) := (others => '0');
@@ -83,7 +90,7 @@ begin
 
     process (clk)
         variable sym       : std_logic_vector(4 downto 0);
-        variable sym_valid : boolean;
+        variable sym_done  : boolean;
         variable kind      : t_sym_kind;
         variable nib       : std_logic_vector(3 downto 0);
         variable dnib      : std_logic_vector(3 downto 0);   -- descrambled
@@ -107,7 +114,7 @@ begin
             silent_d     <= silent;
 
             -- ---- 5B symbol assembly, LSB first, aligned to the first edge --
-            sym_valid := false;
+            sym_done  := false;
             sym       := sym_sr;
             if start = '1' then
                 bit_cnt <= (others => '0');
@@ -116,12 +123,18 @@ begin
                 sym_sr <= sym;
                 if bit_cnt = 4 then
                     bit_cnt   <= (others => '0');
-                    sym_valid := true;
+                    sym_done  := true;
                 else
                     bit_cnt <= bit_cnt + 1;
                 end if;
             end if;
             decode_5b(sym, kind, nib);
+            sym_valid  <= '0';
+            dnib_valid <= '0';
+            if sym_done then
+                sym_q     <= sym;
+                sym_valid <= '1';
+            end if;
 
             -- descramble the nibble (only used in the packet states)
             d := dcr;
@@ -146,7 +159,7 @@ begin
                                   and state /= ST_HB and state /= ST_JUNK then
                 fail := true;
 
-            elsif sym_valid then
+            elsif sym_done then
                 case state is
                     when ST_IDLE =>
                         case kind is
@@ -192,7 +205,7 @@ begin
                     when ST_PRE =>
                         -- nine symbols are discarded while the descrambler locks
                         if kind = SK_DATA then
-                            dcr <= d;
+                            dcr <= d; dnib_q <= dnib; dnib_valid <= '1';
                             if pre_cnt = 8 then
                                 state <= ST_SFD;
                             else
@@ -204,7 +217,7 @@ begin
 
                     when ST_SFD =>
                         if kind = SK_DATA then
-                            dcr <= d;
+                            dcr <= d; dnib_q <= dnib; dnib_valid <= '1';
                             if dnib = x"D" then
                                 state  <= ST_DATA;
                                 ev_sfd <= '1';
@@ -220,7 +233,7 @@ begin
                     when ST_DATA =>
                         case kind is
                             when SK_DATA =>
-                                dcr    <= d;
+                                dcr    <= d; dnib_q <= dnib; dnib_valid <= '1';
                                 crc    <= crc32_update(crc, dnib);
                                 nib_hi <= not nib_hi;
                                 if nib_hi = '1' and octets /= 65535 then

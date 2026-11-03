@@ -173,6 +173,40 @@ transmissions, DME violations, heartbeat and the switch gating and pulse
 widths. `sim/tb_oled.vhd` checks the OLED power-up sequence and the rendered
 frame. Both are run by `ci/check.sh`; the Vivado workflow builds the bitstream.
 
+### Waveforms
+
+```sh
+docker run --rm --user "$(id -u)" -v "$PWD/..":/src -w /src/t1s_trigger hdlc/ghdl:yosys sim/run.sh --wave
+gtkwave sim/tb_top.ghw sim/tb_top.gtkw    # or --vcd and any VCD viewer (Surfer, VS Code WaveTrace, ...)
+```
+
+GTKWave opens with an empty wave panel: the `.gtkw` save files (`sim/tb_top.gtkw`,
+`sim/tb_oled.gtkw`) preload the line, decoder, event and trigger signals. To
+add more, expand `top` > `tb_top` in the tree at the top left, click an
+instance, and drag signals from the list below it into the wave panel (or
+Search > Signal Search Regexp). Right-click a vector > Data Format to switch
+between binary, hex and decimal. `sim/t1s_symbols.txt` is a GTKWave translate
+filter that shows a 5B code as its symbol name (`J SYNC / COMMIT`, `H SSD`,
+data nibbles as `0`..`F`); the tb_top save file applies it to `sym_q` in the
+PCS, which holds the last complete symbol (`sym_valid` pulses when it lands;
+`sym_sr` is the shift register filling up behind it; `dnib_q`/`dnib_valid`
+do the same for the descrambled data nibble). The filter can be put
+on any 5-bit signal with Data Format > Translate Filter File.
+
+`--wave` writes `sim/tb_top.ghw` and `sim/tb_oled.ghw` (GHDL's own format:
+small, keeps records and enums such as the PCS state); `--vcd` writes VCD
+(10x bigger, bits and vectors only). Without a viewer, `sim/vcd2svg.py` draws
+a window of chosen signals as an SVG for a browser or editor:
+
+```sh
+python3 sim/vcd2svg.py sim/tb_top.vcd -l                    # list signal names
+python3 sim/vcd2svg.py sim/tb_top.vcd ssd.svg -f 11.9us -t 13.3us \
+    line_p line_n dut_core.u_dme.bit_valid dut_core.u_dme.bit_val dut_core.u_pcs.sym_sr dut_core.ev_ssd
+```
+
+Names are matched by their tail, so `u_dme.start` is enough as long as it is
+unambiguous (`dut_core.` and `dut_top.u_mon.` both contain a decoder).
+
 ## Sources
 
 - IEEE 802.3cg Clause 147 drafts on ieee802.org (comment resolution r2.0,
