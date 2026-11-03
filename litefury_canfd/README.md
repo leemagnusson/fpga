@@ -14,12 +14,14 @@ host <-- PCIe x4 Gen1 --> AXI PCIe bridge --> BAR0: board registers (ID, irq ena
   `third_party/CTU-CAN-FD`.
 - Core clock 80 MHz, so 1 Mbit/s and 8 Mbit/s are exact integer divisions.
 - Interrupts via MSI (legacy INTx fallback).
-- PCIe x4 at Gen1 (2.5 GT/s). Gen2 works electrically on the LiteFury but
-  its unused AXI-to-PCIe slave path then misses timing by a few tens of
-  picoseconds on the -2L speed grade. The bridge's AXI clock is 125 MHz
-  either way; at Gen1 it closes (0.07 ns of slack with the default 128-bit
-  AXI, 0.3 ns with `AXI_DATA_WIDTH=64`, both verified on hardware) and a CAN
-  card needs none of the bandwidth.
+- PCIe x4 at Gen1 (2.5 GT/s) by default; `PCIE_GEN=2` builds Gen2. The
+  bridge's AXI clock is 125 MHz either way. Timing on the -2L speed grade is
+  tight in the bridge's unused AXI-to-PCIe slave path: Gen1 closes with
+  0.07 ns of slack at the default 128-bit AXI width (0.3 ns with
+  `AXI_DATA_WIDTH=64`), Gen2 with 0.07 ns now that narrow-burst support on
+  that unused port is off. A CAN card gains nothing from Gen2: CAN FD tops
+  out at 8 Mbit/s and register accesses are latency-bound, where Gen2 saves
+  well under 100 ns per read.
 
 ## Hardware
 
@@ -138,8 +140,10 @@ them identically.
 - Bring-up on a LiteFury (2026-11-03, Linux 7.0, Intel B250 host): the card
   enumerates at x4 Gen1, `ctucanfd_pci` binds, both BAR register maps read
   correctly (BAR0 ID `0x00000001`, core device ID `0x0207CAFD`), the driver's
-  interrupt enable works and MSI interrupts arrive. The CAN bus itself has
-  not been exercised yet (no transceiver attached).
+  interrupt enable works and MSI interrupts arrive. With the design in flash
+  the card is up and bound by the driver about five seconds into a cold boot,
+  with the firmware assigning the BARs. The CAN bus itself has not been
+  exercised yet (no transceiver attached).
 - Loopback without a transceiver does not work: the core's loopback mode only
   makes it receive its own frames, it still samples the bits on `can_rx`, so
   a lone node with `can_rx` pulled up goes bus-off with bit errors. For a

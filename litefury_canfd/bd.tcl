@@ -46,6 +46,7 @@ set_property -dict [list \
     CONFIG.SUBSYSTEM_ID $::pci_device_id \
     CONFIG.M_AXI_DATA_WIDTH $::axi_data_width \
     CONFIG.S_AXI_DATA_WIDTH $::axi_data_width \
+    CONFIG.S_AXI_SUPPORTS_NARROW_BURST {false} \
     CONFIG.AXIBAR_NUM {1} \
     CONFIG.BAR0_ENABLED {true} CONFIG.BAR0_TYPE {Memory} CONFIG.BAR0_SCALE {Kilobytes} CONFIG.BAR0_SIZE {32} \
     CONFIG.PCIEBAR2AXIBAR_0 {0x00000000} \
@@ -55,6 +56,8 @@ set_property -dict [list \
     CONFIG.NUM_MSI_REQ {0} \
     CONFIG.INTERRUPT_PIN {true} \
 ] $pcie
+# S_AXI (AXI to PCIe) is unused; without narrow-burst support its read
+# completion logic is small enough for Gen2 to close timing (2026-11-03).
 # Class code 0x0C09 = serial bus controller, CANbus. Not all IP versions let
 # this be set directly; it is cosmetic, so ignore failure.
 catch { set_property -dict [list CONFIG.ENABLE_CLASS_CODE {true} CONFIG.CLASS_CODE {0x0C0900}] $pcie }

@@ -10,6 +10,7 @@
 #   VIVADO_JOBS     parallel jobs for synthesis/implementation (default 4)
 #   AXI_DATA_WIDTH  PCIe bridge AXI width, 64 or 128 (default 128)
 #   PCIE_GEN        1 (default) or 2
+#   BD_POST_TCL     Tcl file sourced after bd.tcl (experiments)
 #   DEBUG_ILA       if set, add the free-licence ILA described in bd.tcl
 #   CI              if set, skip programming the board at the end
 #
@@ -61,6 +62,9 @@ if {[info exists ::env(DEBUG_ILA)]} { add_files [glob $here/rtl/debug/*.v] }
 update_compile_order -fileset sources_1
 
 source $here/bd.tcl
+# Optional hook for experiments: a Tcl file run after the block design exists
+# (e.g. to tweak IP properties); it must leave the design validated and saved.
+if {[info exists ::env(BD_POST_TCL)]} { source $::env(BD_POST_TCL) }
 
 # Import the wrapper as a static source (the project is recreated on every
 # build, so it never goes stale). Its banner, like that of every other file
