@@ -35,7 +35,7 @@ set_property CONFIG.C_BUF_TYPE IBUFDSGTE $refclk_buf
 set pcie [create_bd_cell -type ip -vlnv [ipv axi_pcie] axi_pcie_0]
 set_property -dict [list \
     CONFIG.NO_OF_LANES {X4} \
-    CONFIG.MAX_LINK_SPEED {2.5_GT/s} \
+    CONFIG.MAX_LINK_SPEED $::pcie_link_speed \
     CONFIG.PCIE_BLK_LOCN {X0Y0} \
     CONFIG.REF_CLK_FREQ {100_MHz} \
     CONFIG.XLNX_REF_BOARD {None} \
@@ -44,8 +44,8 @@ set_property -dict [list \
     CONFIG.REV_ID {0x01} \
     CONFIG.SUBSYSTEM_VENDOR_ID $::pci_vendor_id \
     CONFIG.SUBSYSTEM_ID $::pci_device_id \
-    CONFIG.M_AXI_DATA_WIDTH {128} \
-    CONFIG.S_AXI_DATA_WIDTH {128} \
+    CONFIG.M_AXI_DATA_WIDTH $::axi_data_width \
+    CONFIG.S_AXI_DATA_WIDTH $::axi_data_width \
     CONFIG.AXIBAR_NUM {1} \
     CONFIG.BAR0_ENABLED {true} CONFIG.BAR0_TYPE {Memory} CONFIG.BAR0_SCALE {Kilobytes} CONFIG.BAR0_SIZE {32} \
     CONFIG.PCIEBAR2AXIBAR_0 {0x00000000} \
@@ -145,6 +145,56 @@ set m_axi [get_bd_addr_spaces $pcie/M_AXI]
 create_bd_addr_seg -range 32K -offset 0x00000000 $m_axi [get_bd_addr_segs $misc/s_axi/reg0] SEG_misc_regs
 if {![info exists ::env(BD_SMOKE_TEST)]} {
     create_bd_addr_seg -range 16K -offset 0x00010000 $m_axi [get_bd_addr_segs $can/s_axi/reg0] SEG_ctu_can_fd
+}
+
+# ---- optional debug: DEBUG_ILA=1 adds an ILA (free-licence flavour) -------------
+# The BASIC licence allows one ILA with at most 5 probe ports and no System ILA
+# on an interface, so rtl/debug/axi_tap_*.v monitor the AXI links and bundle
+# them into a few wide vectors. The ILA runs on axi_aclk (125 MHz) and samples
+# the 80 MHz AXI-Lite side asynchronously, which is fine for debugging since
+# every 80 MHz state lasts longer than one 125 MHz sample.
+#   probe0 tap_pcie ctl (bit 0 = arvalid)   probe1 tap_pcie araddr
+#   probe2 tap_pcie rdata                   probe3 {tap_can1 ctl, tap_can0 ctl, stat[4:0]}
+#   probe4 {tap_can1 rdata, tap_can0 rdata} stat = {rst_pcie_n, mmcm_lock, link_up, clk_locked, rst_can_n}
+# Probe file: build/canfd.runs/impl_1/canfd_wrapper.ltx.
+if {[info exists ::env(DEBUG_ILA)]} {
+    puts "DEBUG_ILA set: adding ILA"
+    set tap_p [create_bd_cell -type module -reference axi_tap_mm tap_pcie]
+    connect_bd_intf_net -intf_net [get_bd_intf_nets -of_objects [get_bd_intf_pins $pcie/M_AXI]] \
+        [get_bd_intf_pins $pcie/M_AXI] [get_bd_intf_pins $tap_p/s_axi]
+    connect_bd_net [get_bd_pins $pcie/axi_aclk_out] [get_bd_pins $tap_p/s_axi_aclk]
+    set stat [create_bd_cell -type ip -vlnv [ipv xlconcat] dbg_stat]
+    set_property CONFIG.NUM_PORTS 5 $stat
+    connect_bd_net [get_bd_pins $rst_can/peripheral_aresetn]  [get_bd_pins $stat/In0]
+    connect_bd_net [get_bd_pins $clk/locked]                  [get_bd_pins $stat/In1]
+    connect_bd_net [get_bd_pins $pcie/user_link_up]           [get_bd_pins $stat/In2]
+    connect_bd_net [get_bd_pins $pcie/mmcm_lock]              [get_bd_pins $stat/In3]
+    connect_bd_net [get_bd_pins $rst_pcie/peripheral_aresetn] [get_bd_pins $stat/In4]
+    set cctl [create_bd_cell -type ip -vlnv [ipv xlconcat] dbg_can_ctl]
+    set_property CONFIG.NUM_PORTS 3 $cctl
+    connect_bd_net [get_bd_pins $stat/dout] [get_bd_pins $cctl/In0]
+    set crd [create_bd_cell -type ip -vlnv [ipv xlconcat] dbg_can_rd]
+    set_property CONFIG.NUM_PORTS 2 $crd
+    set i 0
+    foreach mi [list M00_AXI M01_AXI] {
+        set t [create_bd_cell -type module -reference axi_tap_lite tap_can$i]
+        connect_bd_intf_net -intf_net [get_bd_intf_nets -of_objects [get_bd_intf_pins $smc/$mi]] \
+            [get_bd_intf_pins $smc/$mi] [get_bd_intf_pins $t/s_axi]
+        connect_bd_net [get_bd_pins $clk/clk_out1] [get_bd_pins $t/s_axi_aclk]
+        connect_bd_net [get_bd_pins $t/ctl]   [get_bd_pins $cctl/In[expr {$i+1}]]
+        connect_bd_net [get_bd_pins $t/rdata] [get_bd_pins $crd/In$i]
+        incr i
+    }
+    set ila [create_bd_cell -type ip -vlnv [ipv ila] ila_dbg]
+    set_property -dict [list CONFIG.C_MONITOR_TYPE {Native} CONFIG.C_NUM_OF_PROBES {5} \
+        CONFIG.C_DATA_DEPTH {1024} CONFIG.C_PROBE0_WIDTH {61} CONFIG.C_PROBE1_WIDTH {32} \
+        CONFIG.C_PROBE2_WIDTH {128} CONFIG.C_PROBE3_WIDTH {97} CONFIG.C_PROBE4_WIDTH {64}] $ila
+    connect_bd_net [get_bd_pins $pcie/axi_aclk_out] [get_bd_pins $ila/clk]
+    connect_bd_net [get_bd_pins $tap_p/ctl]    [get_bd_pins $ila/probe0]
+    connect_bd_net [get_bd_pins $tap_p/araddr] [get_bd_pins $ila/probe1]
+    connect_bd_net [get_bd_pins $tap_p/rdata]  [get_bd_pins $ila/probe2]
+    connect_bd_net [get_bd_pins $cctl/dout]    [get_bd_pins $ila/probe3]
+    connect_bd_net [get_bd_pins $crd/dout]     [get_bd_pins $ila/probe4]
 }
 
 regenerate_bd_layout
