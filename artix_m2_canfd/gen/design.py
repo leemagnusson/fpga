@@ -197,12 +197,20 @@ def build(pkg_path):
                description="M.2 card edge, 2280, key M (PCIe x4 + 3.3 V)", sheet="m2", place=(0, 0, 0, "F")))
     d.parts[-1].zone = "fixed"
 
-    # PCIe AC coupling on our transmit pairs (card side per PCIe base spec), and on REFCLK
-    for i in range(4):
+    # PCIe AC coupling on our transmit pairs (card side per PCIe base spec), and on REFCLK.
+    # Each capacitor sits in line with its finger (pin n odd at x = 9.25 - (n-1)/4),
+    # pads along y so the trace runs straight through. Two 0402s do not fit
+    # side by side at the 0.5 mm finger pitch, so each capacitor is set 0.4 mm
+    # outward from its finger: P and N jog by the same amount and stay matched.
+    from footprints import M2_PIN1_X
+    cap_pins = {("TX3", "N"): 5, ("TX3", "P"): 7, ("TX2", "N"): 17, ("TX2", "P"): 19, ("TX1", "N"): 29, ("TX1", "P"): 31,
+                ("TX0", "N"): 41, ("TX0", "P"): 43, ("REFCLK", "N"): 53, ("REFCLK", "P"): 55}
+    for lane in ("TX0", "TX1", "TX2", "TX3", "REFCLK"):
         for pol in ("P", "N"):
-            C(d, "100n", f"PCIE_TX{i}_{pol}", f"PCIE_TX{i}_{pol}_C", "m2", "GRM155R71C104KA88D", voltage="16V", zone="pcie")
-    for pol in ("P", "N"):
-        C(d, "100n", f"PCIE_REFCLK_{pol}", f"PCIE_REFCLK_{pol}_C", "m2", "GRM155R71C104KA88D", voltage="16V", zone="pcie")
+            x = M2_PIN1_X - (cap_pins[(lane, pol)] - 1) / 4 + (-0.4 if pol == "P" else 0.4)   # P finger is left of N
+            C(d, "100n", f"PCIE_{lane}_{pol}", f"PCIE_{lane}_{pol}_C", "m2", "GRM155R71C104KA88D", voltage="16V",
+              place=(x, 6.0, 270, "F"))
+            d.parts[-1].zone = "fixed"
     R(d, "0R", "PCIE_CLKREQ_N", GND, "m2", zone="pcie")         # always request the clock
     R(d, "10k", "PCIE_PERST_N", V3, "m2", zone="pcie")         # keep reset asserted if host floats it
     R(d, "100R", "MGTRREF", GND, "m2", mpn="RC0402FR-07100RL", zone="pcie")
@@ -229,22 +237,25 @@ def build(pkg_path):
        [(1, "EN/NC", None, "L"), (2, "GND", GND, "L"), (3, "OUT", "CLK100M", "R"), (4, "VDD", V3, "R")],
        "fpga_io", "ECS-2520MV-100-CN-TR", "100 MHz CMOS oscillator, 2.5x2.0 mm, 3.3 V")
     C(d, "100n", V3, GND, "fpga_io")
-    for i in range(4):
-        LED(d, "green", f"LED{i}_N", f"LED{i}_A", "fpga_io", "19-217/GHC-YR1S2/3T")
-        R(d, "1k", f"LED{i}_A", V3, "fpga_io")
+    for i in range(4):   # on the back, where there is room (a card in a slot hides both sides anyway)
+        LED(d, "green", f"LED{i}_N", f"LED{i}_A", "fpga_io", "19-217/GHC-YR1S2/3T", zone="leds", side="B")
+        R(d, "1k", f"LED{i}_A", V3, "fpga_io", zone="leds", side="B")
 
     # ---- FPGA decoupling (per UG483 guidance, scaled for the 50T) ---------------------
-    def decouple(net, items, x0, y0, sheet="fpga_pwr"):
+    # One placement zone per rail (see pcb.ZONES) so each capacitor sits over
+    # its own plane and the fan-out can drop a via straight into it.
+    def decouple(net, zone, items, sheet="fpga_pwr"):
         for value, size, n, mpn in items:
             for k in range(n):
-                C(d, value, net, GND, sheet, mpn, size=size, zone="fpga_decap", side="B")
-    decouple(V1,   [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 2, "GRM155R60J475ME47D"), ("470n", "0402", 4, "GRM155R61A474KE15D")], -9, 28)
-    decouple(V18,  [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 1, "GRM155R60J475ME47D"), ("470n", "0402", 2, "GRM155R61A474KE15D")], -9, 31)
-    decouple(V3,   [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 4, "GRM155R60J475ME47D"), ("470n", "0402", 4, "GRM155R61A474KE15D")], -9, 34)
-    decouple(AVCC, [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("100n", "0402", 3, "GRM155R71C104KA88D")], -9, 37)
-    decouple(AVTT, [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("100n", "0402", 3, "GRM155R71C104KA88D")], -9, 40)
-    FB(d, "600R@100MHz", V18, "VCCADC", "fpga_pwr", "BLM15AG601SN1D", zone="fpga_decap", side="B")
-    C(d, "100n", "VCCADC", GND, "fpga_pwr", zone="fpga_decap", side="B")
+                C(d, value, net, GND, sheet, mpn, size=size, zone=zone, side="B")
+    decouple(V1,   "decap_1v0",  [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("470n", "0402", 4, "GRM155R61A474KE15D")])
+    C(d, "47u", V1, GND, "fpga_pwr", "GRM21BR60J476ME15L", size="0805", zone="power_b", side="B")   # bulk, near the buck (the 1.0 V strip is too narrow for it beside the BGA)
+    decouple(V18,  "decap_1v8",  [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 1, "GRM155R60J475ME47D"), ("470n", "0402", 2, "GRM155R61A474KE15D")])
+    decouple(V3,   "decap_3v3",  [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 4, "GRM155R60J475ME47D"), ("470n", "0402", 4, "GRM155R61A474KE15D")])
+    decouple(AVCC, "decap_avcc", [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("100n", "0402", 3, "GRM155R71C104KA88D")])
+    decouple(AVTT, "decap_avtt", [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("100n", "0402", 3, "GRM155R71C104KA88D")])
+    FB(d, "600R@100MHz", V18, "VCCADC", "fpga_pwr", "BLM15AG601SN1D", zone="decap_1v8", side="B")
+    C(d, "100n", "VCCADC", GND, "fpga_pwr", zone="decap_1v8", side="B")
 
     # ---- power supplies -----------------------------------------------------------
     # VCCINT 1.0 V: TPS62823, FB = 0.6 V: R1/R2 = (1.0-0.6)/0.6 -> 68k / 100k
@@ -330,6 +341,13 @@ def build(pkg_path):
                    mpn="DF52-6S-0.8H(21)", description=f"CAN buses {buses[0]} and {buses[1]}: H, L, GND each; 0.8 mm wire-to-board, 1.5 mm tall",
                    sheet="can", place=(x, 78.3, 180, "F")))
         d.parts[-1].zone = "fixed"
+    # Feedback dividers, pull-ups and CAN terminations go on the back, which is
+    # empty beyond the decoupling; this keeps the front rows short enough to
+    # leave routing corridors along both edges (see pcb.ZONES).
+    for p in d.parts:
+        if p.zone in ("power", "can") and p.footprint == fp("R_0402"):
+            p.zone = p.zone + "_b"
+            p.place = (0, 0, 0, "B")
     return d
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
 """PCB emitter: writes the .kicad_pcb with the M.2 2280 outline, a 6-layer
 0.8 mm stackup, net list, and every footprint placed (unrouted). Footprints
 are embedded by reading the generated .kicad_mod files."""
-import os, re
+import os, re, math
 from sexp import W, q, num, uid
+from footprints import (M2_TONGUE_HALF, M2_TONGUE_H, M2_TONGUE_R, M2_KEY_W, M2_KEY_D, M2_KEY_C, M2_MOUNT_R)
 
 PCB_VERSION = "20241229"
 BOARD_W = 22.0
@@ -118,28 +119,34 @@ def _outline(w):
         w.close()
     xl, xr = -W_/2, W_/2
     yt, yb = 0.0, L            # yt: far end (mount notch), yb: connector edge
-    # key-M notch at the connector edge: 1.2 wide, 4.0 deep, centred between pins 57 and 67.
-    # Pin 1 centre = 11 - 19.85 + 0.175 + 18.5 (see footprints.m2_edge); pin n odd centre = pin1 - (n-1)/2*0.5
-    pin1 = 11.0 - 19.85 + 0.175 + 18.5
-    key_c = pin1 - 15.25            # midway between pin 57 (-14.0) and pin 67 (-16.5)
-    kw, kd = 1.2, 4.0
-    # mount notch: R3 semicircle, centre 1.0 mm inboard of the far edge
-    r = 3.0; cy = yt + 1.0
-    import math
-    dx = math.sqrt(r*r - 1.0*1.0)     # half-width where the circle meets the edge
-    # far edge with semicircle
-    seg(xl, yt, -dx, yt)
-    arc(-dx, yt, 0.0, cy + r, dx, yt)
-    seg(dx, yt, xr, yt)
-    # sides
-    seg(xr, yt, xr, yb)
-    seg(xl, yb, xl, yt)
-    # connector edge with key notch (notch goes up into the board by kd)
-    seg(xl, yb, key_c - kw/2, yb)
+    # Connector end (see footprints.M2_*): the 19.85 mm tongue carries the
+    # fingers and is 4.0 mm tall; 1.075 mm shoulders either side with R0.5
+    # inside fillets; round-ended key-M slot 1.2 wide and 3.5 deep next to pin 75.
+    key_c, kw, kd = M2_KEY_C, M2_KEY_W, M2_KEY_D
+    th, tt, tr = M2_TONGUE_HALF, M2_TONGUE_H, M2_TONGUE_R
+    ys = yb - tt                      # shoulder line
+    s45 = tr * (1 - math.sqrt(0.5))   # fillet mid-point offset from the corner lines
+    # far edge with the mount notch: R1.75 semicircle centred on the edge
+    r = M2_MOUNT_R
+    seg(xl, yt, -r, yt)
+    arc(-r, yt, 0.0, yt + r, r, yt)
+    seg(r, yt, xr, yt)
+    # sides down to the shoulders
+    seg(xr, yt, xr, ys)
+    seg(xl, ys, xl, yt)
+    # shoulders, inside fillets, tongue walls
+    seg(xl, ys, -th - tr, ys)
+    arc(-th - tr, ys, -th - s45, ys + s45, -th, ys + tr)
+    seg(-th, ys + tr, -th, yb)
+    seg(xr, ys, th + tr, ys)
+    arc(th + tr, ys, th + s45, ys + s45, th, ys + tr)
+    seg(th, ys + tr, th, yb)
+    # connector edge with the key slot (the slot goes up into the board by kd)
+    seg(-th, yb, key_c - kw/2, yb)
     seg(key_c - kw/2, yb, key_c - kw/2, yb - kd + kw/2)
     arc(key_c - kw/2, yb - kd + kw/2, key_c, yb - kd, key_c + kw/2, yb - kd + kw/2)
     seg(key_c + kw/2, yb - kd + kw/2, key_c + kw/2, yb)
-    seg(key_c + kw/2, yb, xr, yb)
+    seg(key_c + kw/2, yb, th, yb)
 
 def _load_footprint(libdir, name):
     path = os.path.join(libdir, name + ".kicad_mod")
@@ -199,18 +206,30 @@ def _has_pin(part, number):
     return any(p.number == number for p in part.pins)
 
 ZONES = {
-    # name: (x0, x1, y0, y1, side)   design coordinates, y from the connector edge
-    "pcie":       (-10.5, 10.5, 4.6, 9.8, "F"),
-    "fpga_io":    (-10.5, 10.5, 32.6, 42.2, "F"),      # J2 (fixed) sits at y 42.5-46.1
-    "power":      (-10.5, 10.5, 46.4, 62.5, "F"),
-    "can":        (-10.5, 10.5, 62.5, 75.3, "F"),
-    # decoupling on the back, just beyond the BGA (the BGA shadow is full of fan-out vias)
-    "fpga_decap": (-10.5, 10.5, 31.9, 38.0, "B"),
-    "fpga_pwr":   (-10.5, 10.5, 31.9, 38.0, "B"),
-    "m2":         (-10.5, 10.5, 4.6, 9.8, "F"),
-    "misc":       (-10.5, 10.5, 46.4, 62.5, "F"),
+    # name: (x0, x1, y0, y1, side)   design coordinates, y from the connector edge.
+    # Zones stop 3 mm short of the long edges so each side keeps a routing
+    # corridor on both layers for the signals that run the length of the card.
+    "pcie":       (-8.0, -4.8, 4.6, 9.8, "F"),       # left of the fixed AC-coupling capacitors
+    "fpga_io":    (-8.0, 8.0, 32.6, 42.2, "F"),        # J2 (fixed) sits at y 42.5-46.1
+    "power":      (-8.0, 8.0, 46.4, 62.5, "F"),
+    "can":        (-8.0, 8.0, 62.5, 75.3, "F"),
+    # decoupling on the back, just beyond the BGA (the BGA shadow is full of
+    # fan-out vias), one zone per rail so every capacitor sits over its own
+    # plane: 1.0 V on the centre strip, 1.8 V and 3.3 V either side, the two
+    # transceiver rails below the GTP corner on their island extensions.
+    "decap_3v3":  (-8.0, -2.9, 31.9, 44.0, "B"),
+    "decap_1v0":  (-2.3, 2.3, 31.9, 44.0, "B"),   # inside the 1.0 V strip with room for the vias
+    "decap_1v8":  (2.9, 8.0, 31.9, 44.0, "B"),
+    "decap_avcc": (0.5, 4.0, 8.0, 16.0, "B"),
+    "decap_avtt": (4.0, 7.3, 8.0, 16.0, "B"),
+    # small parts on the otherwise empty back: LEDs, feedback and termination
+    # resistors (below y 48 so they clear the Tag-Connect alignment holes)
+    "leds":       (-8.0, 8.0, 48.5, 52.0, "B"),
+    "power_b":    (-8.0, 8.0, 52.5, 62.5, "B"),
+    "can_b":      (-8.0, 8.0, 62.5, 75.3, "B"),
 }
 GAP = 0.3
+GAP_BACK = 0.5   # room for a fan-out via between neighbouring parts on the back
 
 def courtyard(fp_text):
     m = re.search(r'\(fp_rect\n\s*\(start (-?[0-9.]+) (-?[0-9.]+)\)\n\s*\(end (-?[0-9.]+) (-?[0-9.]+)\)\n\s*\(stroke[^\n]*\n\s*\(fill no\)\n\s*\(layer "F.CrtYd"\)', fp_text)
@@ -231,16 +250,17 @@ def pack(design, fp_texts):
         if zone not in ZONES:
             raise KeyError(f"no zone rectangle for {zone}")
         x0, x1, y0, y1, side = ZONES[zone]
+        gap = GAP_BACK if side == "B" else GAP
         parts.sort(key=lambda p: (-courtyard(fp_texts[p.footprint.split(':')[1]])[1], -courtyard(fp_texts[p.footprint.split(':')[1]])[0], p.ref))
         x = x0; y = y0; row_h = 0
         for p in parts:
             w, h = courtyard(fp_texts[p.footprint.split(':')[1]])
             if x + w > x1 + 1e-6:
-                x = x0; y += row_h + GAP; row_h = 0
+                x = x0; y += row_h + gap; row_h = 0
             if y + h > y1 + 1e-6:
                 overflow.append((zone, p.ref))
             p.place = (x + w / 2, y + h / 2, 0.0, side)
-            x += w + GAP
+            x += w + gap
             row_h = max(row_h, h)
     return overflow
 
@@ -252,10 +272,28 @@ PLANES = [
     ("VCC1V8",    "In3.Cu", 0, -11, 11, 10, 62.3),
     ("VCC1V0",    "In3.Cu", 1, -2.6, 2.6, 20.6, 62),     # VCCINT/VCCBRAM core balls, strip up to the buck
     ("VIN_3V3",   "In3.Cu", 1, -11, 11,  0, 9.5),        # under the connector fingers
-    ("VIN_3V3",   "In3.Cu", 1,  7.6, 11,  9.6, 62),      # ... and a strip up to the regulators
+    ("VIN_3V3",   "In3.Cu", 2,  7.6, 11,  9.0, 62),      # ... and a strip up to the regulators (overlaps the above so they join;
+                                                         #     different priority so DRC does not flag the overlap)
     ("VCC5V_CAN", "In3.Cu", 1, -11, 11, 62.3, 80),
+    # Islands below the package for the transceiver-rail decoupling (zones
+    # decap_avcc/avtt). They stop at y 16.1 so the BGA escape cells one pitch
+    # outside the package (y 16.4) stay free; the router joins each island to
+    # its corner island with a short link (hand-widen those two links).
+    ("MGTAVCC",   "In3.Cu", 4,  0.5, 4.0,  8.0, 16.1),
+    ("MGTAVTT",   "In3.Cu", 5,  4.0, 7.3,  8.0, 16.1),
     ("MGTAVCC",   "In3.Cu", 2,  2.8, 5.0, 17.2, 21.8),   # GTP corner, FPGA rotated 180
     ("MGTAVTT",   "In3.Cu", 3,  4.8, 7.4, 16.6, 22.6),
+]
+
+# Fixed links (design coordinates) that the fan-out adds and locks: the two
+# transceiver-rail island extensions below the package cannot be joined to the
+# corner islands on In3 (the BGA escape via row at y 16.4 is solid from x 1.2
+# to 6.8), so a short 0.1 mm B.Cu track threads between those vias instead;
+# placed right after the escapes so the plane fan-out keeps their cells free.
+# (net, [("via", x, y) | ("track", "B"|"F", width, [(x, y), ...])])
+LINKS = [
+    ("MGTAVCC", [("via", 3.9, 15.85), ("track", "B", 0.1, [(3.9, 15.85), (4.0, 16.05), (4.0, 17.6), (4.8, 17.6)]), ("via", 4.8, 17.6)]),
+    ("MGTAVTT", [("via", 6.4, 16.0), ("track", "B", 0.1, [(6.4, 16.0), (6.4, 16.8)]), ("via", 6.4, 16.8)]),
 ]
 
 def _zones(w, nets):
@@ -267,8 +305,11 @@ def _zones(w, nets):
         w.line(f"(uuid {q(uid('zone', net, layer, x0, y0))})")
         w.line("(hatch edge 0.5)")
         w.line(f"(priority {prio})")
-        w.line("(connect_pads (clearance 0.2))")
-        w.line("(min_thickness 0.15)")
+        # 0.1 mm clearance and width: with 0.4 mm vias on the 0.8 mm BGA cell grid
+        # anything larger leaves no copper between neighbouring vias and the
+        # small islands under the package fall apart into disconnected slivers.
+        w.line("(connect_pads (clearance 0.1))")
+        w.line("(min_thickness 0.1)")
         w.line("(filled_areas_thickness no)")
         w.line("(fill yes (thermal_gap 0.25) (thermal_bridge_width 0.3))")
         w.open("polygon")
@@ -281,14 +322,13 @@ def _zones(w, nets):
 def _edge_keepout(w, width=0.3):
     """Rule areas hugging the outline: no tracks or vias within `width` of the
     edge (pads and copper pours are still allowed). Freerouting honours these."""
-    import math
-    pin1 = 11.0 - 19.85 + 0.175 + 18.5
-    key_c = pin1 - 15.25
+    key_c, th = M2_KEY_C, M2_TONGUE_HALF
     strips = [(-11, 11, 0, width), (-11, 11, 80 - width, 80), (-11, -11 + width, 0, 80), (11 - width, 11, 0, 80),
-              (key_c - 0.6 - width, key_c + 0.6 + width, 0, 4.0 + width)]          # key-M slot
+              (key_c - M2_KEY_W/2 - width, key_c + M2_KEY_W/2 + width, 0, M2_KEY_D + width),   # key-M slot
+              (-11, -th + width, 0, M2_TONGUE_H + width), (th - width, 11, 0, M2_TONGUE_H + width)]  # shoulders
     polys = [[(x0, y0), (x1, y0), (x1, y1), (x0, y1)] for x0, x1, y0, y1 in strips]
-    r = 3.0 + width
-    polys.append([(r * math.cos(a), 79.0 + r * math.sin(a)) for a in [i * math.pi / 16 for i in range(33)]])  # mount notch
+    r = M2_MOUNT_R + width
+    polys.append([(r * math.cos(a), 80.0 + r * math.sin(a)) for a in [i * math.pi / 16 for i in range(33)]])  # mount notch
     for k, pts in enumerate(polys):
         w.open("zone (net 0) (net_name \"\") (layers \"F&B.Cu\")")
         w.line(f"(uuid {q(uid('keepout', k))})")

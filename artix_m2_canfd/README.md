@@ -44,8 +44,11 @@ host transmitter, so it connects to the FPGA receivers, and `PERp/n` (host
 receiver) is driven by the FPGA transmitters through 100 nF AC coupling
 capacitors on the card. REFCLK is AC coupled too. Pins 59-66 are the key.
 The card-edge geometry (0.5 mm pitch, 38 top pads 2.0 mm long, 37 bottom
-pads 2.5 mm long staggered by 0.25 mm, 19.85 mm span from the right edge)
-is in `gen/footprints.py`.
+pads 2.5 mm long staggered by 0.25 mm, fingers centred on the 19.85 mm
+wide connector tongue, pin 1 at the right in the top view, key slot
+1.2 x 3.5 mm next to pin 75, 3.5 mm semicircular mount notch centred on
+the far edge) is in `gen/footprints.py` (`M2_*` constants) and the outline
+in `gen/pcb.py`.
 
 ## Routing flow
 
@@ -61,6 +64,11 @@ python3 gen/route.py import          # pull the routes back in, refill planes, s
 kicad-cli pcb drc --severity-all artix_m2_canfd.kicad_pcb
 ```
 
+Use Freerouting 1.9.0 (it needs a display: `xvfb-run -a java -jar ...` on a
+headless machine). The 2.x releases ignore `-mp` in headless mode and only
+write the session file when their own improvement heuristic gives up, which
+can take hours. Twelve passes take about ten minutes.
+
 Freerouting cannot get signals out of a 0.8 mm BGA once the plane vias are
 in, so `gen/escape.py` does that deterministically before the export: outer
 ring balls leave straight out on the top layer, second-ring balls through the
@@ -69,13 +77,26 @@ along the pad-row/column lines (every cell-centre via clears those lines by
 exactly 0.15 mm) to one pitch outside the package. Plane balls get a via in
 any free cell around them, or hop to a neighbouring ball of the same net;
 the two 1.8 V balls over the 1.0 V strip get a short bottom-layer run to a
-cell over the 1.8 V plane. Everything added by `prepare` is locked, which
-the DSN export turns into fixed wires that the autorouter leaves alone.
+cell over the 1.8 V plane. The PCIe receive pairs and REFCLK are planned
+first, as pairs: a backtracking search tries adjacent exit lines (south
+column lines, or east/west row lines either side of a transmit pair) for
+both halves of each pair, deepest pair first, and rejects any placement
+that would strand the corner's other signals (JTAG, QSPI). The result:
+RX0, RX2 and REFCLK leave south on adjacent bottom-layer lines, RX1
+straight down on the top layer, RX3 east on the row lines either side of
+TX1, and the transmit pairs east on their row line and the row gap beside
+it. The search takes about ten minutes. Everything added by `prepare` is
+locked, which the DSN export turns into fixed wires that the autorouter
+leaves alone.
 
 Planes (6 layers, 0.8 mm): L2 and L5 ground; L3 3.3 V everywhere; L4 1.8 V
 with a 1.0 V strip from the core balls up to the buck, the 3.3 V input
 under the fingers and along the right edge to the regulators, 5 V at the
-CAN end, and the two transceiver rails at the GTP corner. A 0.3 mm
+CAN end, and the two transceiver rails at the GTP corner, each extended
+below the package under its decoupling zone and joined to the corner
+island by a locked 0.1 mm B.Cu link threaded through the escape via row
+(`pcb.LINKS`). Plane fills use 0.1 mm clearance and width so the islands
+survive the 0.4 mm vias on the 0.8 mm cell grid. A 0.3 mm
 keep-out ring keeps routed copper off the edge. The M.2 fingers, pads
 beyond their planes, and the FPGA's signal balls are left to the router.
 
@@ -106,9 +127,15 @@ not pretty; the PCB is placed but not routed.
 Generated, electrical rule check clean, design rule check clean apart from
 the unrouted connections (KiCad 9.0.8). KiCad's own netlist export of the
 schematic matches the Python design net for net. Not built or tested.
-Parts are auto-placed into zones (PCIe coupling near the fingers, FPGA
-decoupling on the back under the BGA, configuration above the FPGA, power
-above that, CAN at the far end); treat the placement as a starting point.
+Parts are auto-placed into zones (the PCIe coupling capacitors are fixed
+in line with their fingers, pads along the trace, P and N set 0.4 mm
+outward so both jog the same amount, with the PCIe-zone resistors beside them;
+configuration above the FPGA, power above that, CAN at the far end; on the
+back the FPGA decoupling just beyond the BGA in one zone per rail so every
+capacitor sits over its plane, the transceiver-rail decoupling below the
+GTP corner, then the LEDs, feedback dividers and CAN terminations). Zones
+stop 3 mm short of the long edges so each side keeps a routing corridor on
+both layers; treat the placement as a starting point.
 Note that `kicad-cli` ignores the `.kicad_dru` rule file, so the project
 file carries a 0.1 mm copper-to-edge minimum for the gold fingers and the
 rule file restores 0.3 mm for everything else when the GUI is used.
@@ -133,8 +160,8 @@ Review list, most important first:
 5. **MCP2562FD DFN land pattern** is generic 3 x 3 mm 0.65 mm pitch; check
    against the Microchip drawing.
 6. **Height**: everything on top is under 1.5 mm (FPGA 1.5 mm, DFN/WSON
-   0.8-1.0 mm, SOT-23 1.3 mm, inductors 1.0 mm). Capacitors on the bottom
-   under the FPGA are 0402/0805 (up to 1.25 mm). This suits a desktop M.2
+   0.8-1.0 mm, SOT-23 1.3 mm, inductors 1.0 mm). The bottom carries 0402s,
+   three 0805s (up to 1.25 mm) and the LEDs. This suits a desktop M.2
    slot; a laptop slot with a 1.35 mm bottom limit needs the 0805s moved.
 7. **Licensing/IP**: the CTU CAN FD core is non-commercial; four instances
    fit the 50T comfortably (one core plus PCIe used 24 % of a 100T).

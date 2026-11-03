@@ -85,7 +85,9 @@ def escape_bga(board, fp, occ, plane_nets):
         ring_c, ring_r = min(c, 19 - c), min(r, 19 - r)
         px, py = X(c), Y(r)
         pts = None
-        if ring_r == 1:                                     # straight out along the column line
+        if name == "MGTRREF":                               # placed after the pairs (see below)
+            pass
+        elif ring_r == 1:                                   # straight out along the column line
             out = 0 if r == 1 else 19
             pts = [(px, py), (px, Y(out))]
             step = (0.0, 0.4 * sy_out(out))
@@ -162,9 +164,43 @@ def escape_bga(board, fp, occ, plane_nets):
                 prev[nb] = n; dq.append(nb)
         return None, None
 
-    def plan(order):
+    def build_items(c, r, pad, k, g, path, hit, node_net, edge_net):
+        """Via in cell (k, g), F.Cu stub from the ball, B.Cu run along `path`; marks the grid."""
+        net = pad.GetNetCode()
+        px, py = X(c), Y(r)
+        vx, vy = gap_x(k), gap_y(g)
+        items = [("via", vx, vy, net), ("track", pcbnew.F_Cu, "F", [(px, py), (vx, vy)], net)]
+        pts = [(vx, vy), (X(path[0][0]), Y(path[0][1]))]
+        node_net[path[0]] = net
+        for a, b in zip(path, path[1:]):
+            node_net[b] = net; edge_net[frozenset((a, b))] = net
+            pts.append((X(b[0]), Y(b[1])))
+        merged = [pts[0], pts[1]]
+        for p in pts[2:]:
+            (ax, ay), (bx, by) = merged[-2], merged[-1]
+            if (ax == bx == p[0]) or (ay == by == p[1]):
+                merged[-1] = p
+            else:
+                merged.append(p)
+        if hit:                                   # plane ball: a second via over its plane
+            hx, hy = gap_x(hit[0]), gap_y(hit[1])
+            merged.append((hx, hy))
+            items.append(("via", hx, hy, net))
+        else:                                     # signal: end via outside the package
+            items.append(("via", merged[-1][0], merged[-1][1], net))
+        items.append(("track", pcbnew.B_Cu, "B", merged, net))
+        return items
+
+    def cell_ok(c, r, net, k, g):
+        """Via cell (k, g) usable for ball (c, r): free spot and a clean F.Cu stub."""
+        vx, vy = gap_x(k), gap_y(g)
+        if occ.why_blocked(vx, vy, net):
+            return False
+        return occ.segment_free(X(c), Y(r), vx, vy, net, W, "F")
+
+    def plan(order, node_net0=None, edge_net0=None):
         """Returns (actions, failed); leaves occ extended by the planned items."""
-        node_net, edge_net = {}, {}
+        node_net = dict(node_net0 or {}); edge_net = dict(edge_net0 or {})
         planned, failed = [], []
         def plane_cell(n, net, name, avoid):
             """A free cell next to node n whose centre lies over the net's plane."""
@@ -215,29 +251,107 @@ def escape_bga(board, fp, occ, plane_nets):
             if best is None:
                 failed.append((c, r, pad, why)); continue
             _, k, g, path, hit = best
-            vx, vy = gap_x(k), gap_y(g)
-            items = [("via", vx, vy, net), ("track", pcbnew.F_Cu, "F", [(px, py), (vx, vy)], net)]
-            pts = [(vx, vy), (X(path[0][0]), Y(path[0][1]))]
-            node_net[path[0]] = net
-            for a, b in zip(path, path[1:]):
-                node_net[b] = net; edge_net[frozenset((a, b))] = net
-                pts.append((X(b[0]), Y(b[1])))
-            merged = [pts[0], pts[1]]
-            for p in pts[2:]:
-                (ax, ay), (bx, by) = merged[-2], merged[-1]
-                if (ax == bx == p[0]) or (ay == by == p[1]):
-                    merged[-1] = p
-                else:
-                    merged.append(p)
-            if hit:                                   # plane ball: a second via over its plane
-                hx, hy = gap_x(hit[0]), gap_y(hit[1])
-                merged.append((hx, hy))
-                items.append(("via", hx, hy, net))
-            else:                                     # signal: end via outside the package
-                items.append(("via", merged[-1][0], merged[-1][1], net))
-            items.append(("track", pcbnew.B_Cu, "B", merged, net))
+            items = build_items(c, r, pad, k, g, path, hit, node_net, edge_net)
             occupy(items); planned += items
         return planned, failed
+
+    # ---- differential pairs: both halves leave on the same side on adjacent lines ----
+    # Depth-first search over the pairs (deepest first): for each pair try every
+    # pair of adjacent exit nodes (south column lines first, then east/west row
+    # lines two rows apart, i.e. either side of a TX pair) and every via cell of
+    # each half, route both halves on the grid, and backtrack when a later pair
+    # cannot be placed. REFCLK goes last and may fall back to the general planner.
+    def pair_key(name):
+        m = re.match(r"(PCIE_(?:RX\d|REFCLK))_([PN])$", name)
+        return (m.group(1), m.group(2)) if m else None
+
+    def exit_pairs():
+        s_r = 0 if south_is_r0 else 19
+        e_c = 0 if east_is_c0 else 19
+        w_c = 19 - e_c
+        out = []
+        for c in range(1, 18):                                    # south, adjacent column lines
+            out.append((0, (c, s_r), (c + 1, s_r))); out.append((0, (c + 1, s_r), (c, s_r)))
+        for r in range(1, 17):                                    # east/west row lines, 2 apart (a TX pair between)
+            for cc in (e_c, w_c):
+                out.append((1, (cc, r), (cc, r + 2))); out.append((1, (cc, r + 2), (cc, r)))
+        for r in range(1, 18):                                    # adjacent row lines (west side has no TX ladder)
+            for cc in (e_c, w_c):
+                out.append((2, (cc, r), (cc, r + 1))); out.append((2, (cc, r + 1), (cc, r)))
+        return out
+
+    def plan_pairs(pair_list, node_net, edge_net, others):
+        """Returns the list of items or None. Mutates node_net/edge_net and occ on success.
+        At the leaves the other signal balls of the corner (`others`) must still find
+        an escape, otherwise the candidate is rejected and the search backtracks."""
+        if not pair_list:
+            n_i, n_s = len(occ.items), len(occ.segs)
+            _, failed = plan(others, node_net, edge_net)
+            del occ.items[n_i:]; del occ.segs[n_s:]
+            return [] if not failed else None
+        (ca, ra, pa), (cb, rb, pb) = pair_list[0]
+        na, nb = pa.GetNetCode(), pb.GetNetCode()
+        tried = []
+        for rank, ea, eb in exit_pairs():
+            if occ.why_blocked(X(ea[0]), Y(ea[1]), na) or occ.why_blocked(X(eb[0]), Y(eb[1]), nb):
+                continue
+            if ea in node_net or eb in node_net:
+                continue
+            best = None
+            for ka in (ca - 1, ca):
+                for ga in (ra - 1, ra):
+                    if not cell_ok(ca, ra, na, ka, ga):
+                        continue
+                    corners_a = [n for n in ((ka, ga), (ka + 1, ga), (ka, ga + 1), (ka + 1, ga + 1))
+                                 if node_net.get(n) is None and not side(n)]
+                    path_a, _ = bfs(corners_a, na, lambda n: n == ea, node_net, edge_net)
+                    if not path_a:
+                        continue
+                    nn, ee = dict(node_net), dict(edge_net)
+                    items_a = build_items(ca, ra, pa, ka, ga, path_a, None, nn, ee)
+                    n_i, n_s = len(occ.items), len(occ.segs)
+                    occupy(items_a)
+                    for kb in (cb - 1, cb):
+                        for gb in (rb - 1, rb):
+                            if not cell_ok(cb, rb, nb, kb, gb):
+                                continue
+                            corners_b = [n for n in ((kb, gb), (kb + 1, gb), (kb, gb + 1), (kb + 1, gb + 1))
+                                         if nn.get(n) is None and not side(n)]
+                            path_b, _ = bfs(corners_b, nb, lambda n: n == eb, nn, ee)
+                            if not path_b:
+                                continue
+                            cost = (rank, len(path_a) + len(path_b))
+                            if best is None or cost < best[0]:
+                                best = (cost, ka, ga, path_a, kb, gb, path_b)
+                    del occ.items[n_i:]; del occ.segs[n_s:]
+            if best is None:
+                continue
+            tried.append(best)
+        # try candidates best-first, recursing into the remaining pairs
+        per_rank = {}
+        for t in sorted(tried, key=lambda t: t[0]):
+            per_rank.setdefault(t[0][0], []).append(t)
+        shortlist = [t for rank in sorted(per_rank) for t in per_rank[rank][:6]]
+        for cost, ka, ga, path_a, kb, gb, path_b in shortlist:
+            nn, ee = dict(node_net), dict(edge_net)
+            n_i, n_s = len(occ.items), len(occ.segs)
+            items = build_items(ca, ra, pa, ka, ga, path_a, None, nn, ee)
+            occupy(items)
+            items_b = build_items(cb, rb, pb, kb, gb, path_b, None, nn, ee)
+            occupy(items_b)
+            # prune early: the other corner signals must still be able to leave
+            m_i, m_s = len(occ.items), len(occ.segs)
+            _, failed = plan(others, nn, ee)
+            del occ.items[m_i:]; del occ.segs[m_s:]
+            if failed:
+                del occ.items[n_i:]; del occ.segs[n_s:]
+                continue
+            rest = plan_pairs(pair_list[1:], nn, ee, others)
+            if rest is not None:
+                node_net.clear(); node_net.update(nn); edge_net.clear(); edge_net.update(ee)
+                return items + items_b + rest
+            del occ.items[n_i:]; del occ.segs[n_s:]
+        return None
 
     deep.sort(key=lambda t: (-dist_out(t[0], t[1], t[2].GetNetname()), t[2].GetNetname()))
     # plane balls that sit over another net's plane island: via, grid, via over their own plane
@@ -247,11 +361,54 @@ def escape_bga(board, fp, occ, plane_nets):
             continue
         if not any(plane_under(gap_x(k), gap_y(g), name) for k in (c - 1, c) for g in (r - 1, r)):
             deep.append((c, r, pad))
+    pairs = {}
+    for t in deep:
+        k = pair_key(t[2].GetNetname())
+        if k:
+            pairs.setdefault(k[0], {})[k[1]] = t
+    pair_list = [(v["P"], v["N"]) for name, v in pairs.items() if len(v) == 2 and name != "PCIE_REFCLK"]
+    pair_list.sort(key=lambda ab: -dist_out(ab[0][0], ab[0][1], ab[0][2].GetNetname()))   # deepest first
+    if "PCIE_REFCLK" in pairs and len(pairs["PCIE_REFCLK"]) == 2:
+        pair_list.append((pairs["PCIE_REFCLK"]["P"], pairs["PCIE_REFCLK"]["N"]))
+    node_net0, edge_net0 = {}, {}
+    in_pairs = {(t[0], t[1]) for ab in pair_list for t in ab}
+    cmax = 12 if east_is_c0 else 7; rmax = 10 if south_is_r0 else 9
+    others = [t for t in deep if (t[0], t[1]) not in in_pairs and t[2].GetNetname() not in plane_nets
+              and t[2].GetNetname() != "MGTRREF"
+              and (t[0] <= cmax if east_is_c0 else t[0] >= cmax) and (t[1] <= rmax if south_is_r0 else t[1] >= rmax)]
+    pair_items = plan_pairs(pair_list, node_net0, edge_net0, others)
+    if pair_items is None and pair_list and pair_list[-1][0][2].GetNetname().startswith("PCIE_REFCLK"):
+        others = others + list(pair_list[-1])                                   # REFCLK falls back to the planner,
+        pair_items = plan_pairs(pair_list[:-1], node_net0, edge_net0, others)   # but must stay escapable
+        pair_list = pair_list[:-1]
+    if pair_items is None:
+        pair_items = []; pair_list = []
+    paired = {(t[0], t[1]) for ab in pair_list for t in ab}
+    stats["pairs"] = [ab[0][2].GetNetname()[:-2] for ab in pair_list]
+    actions += pair_items
+    deep = [t for t in deep if (t[0], t[1]) not in paired]
+    # MGTRREF (outer row, 100 ohm to ground): straight out if the pairs left its
+    # line free, otherwise a diagonal into the free cell just outside the package
+    # ending on a via; the router carries on from there between the pair lines.
+    for t in list(deep):
+        c, r, pad = t
+        if pad.GetNetname() != "MGTRREF":
+            continue
+        net = pad.GetNetCode(); px, py = X(c), Y(r)
+        out = 0 if r == 1 else 19
+        cands = [[(px, py), (px, Y(out))]] + [[(px, py), (gap_x(k), gap_y(g))] for k in (c - 1, c) for g in ((0,) if out == 0 else (18,))]
+        for pts in cands:
+            ex, ey = pts[-1]
+            if occ.why_blocked(ex, ey, net) is None and f_free(pts, net):
+                items = [("track", pcbnew.F_Cu, "F", pts, net), ("via", ex, ey, net)]
+                actions += items; occupy(items); stats["F"] += 1
+                deep.remove(t)
+                break
     n_items, n_segs = len(occ.items), len(occ.segs)
     best = None
     order = deep
     for attempt in range(8):
-        planned, failed = plan(order)
+        planned, failed = plan(order, node_net0, edge_net0)
         del occ.items[n_items:]; del occ.segs[n_segs:]
         if best is None or len(failed) < len(best[1]):
             best = (planned, failed)

@@ -22,7 +22,7 @@ MM = pcbnew.FromMM
 def to_design(kx, ky):
     return kx - 31.0, 80.0 - (ky - 20.0)
 
-KEY_C = 11.0 - 19.85 + 0.175 + 18.5 - 15.25
+from footprints import M2_KEY_C as KEY_C, M2_KEY_W, M2_KEY_D, M2_TONGUE_HALF, M2_TONGUE_H, M2_MOUNT_R
 PLANES = None   # filled from pcb.PLANES at import time
 
 def plane_under(x, y, netname):
@@ -37,9 +37,11 @@ def plane_under(x, y, netname):
 
 def in_notch(x, y):
     dx, dy = to_design(x, y)
-    if abs(dx - KEY_C) < 1.2 and dy < 4.8:          # key-M slot
+    if abs(dx - KEY_C) < M2_KEY_W / 2 + 0.6 and dy < M2_KEY_D + 0.8:   # key-M slot
         return True
-    if math.hypot(dx, dy - 79.0) < 3.8:             # mount semicircle
+    if abs(dx) > M2_TONGUE_HALF - 0.8 and dy < M2_TONGUE_H + 0.8:        # shoulders beside the tongue
+        return True
+    if math.hypot(dx, dy - 80.0) < M2_MOUNT_R + 0.8:                     # mount semicircle
         return True
     return False
 
@@ -209,6 +211,35 @@ def fanout_fingers(board, fp, occ):
                     break
     return added
 
+def add_links(board, occ, skipped):
+    """Explicit locked links from pcb.LINKS (island-to-island bridges the planes cannot make)."""
+    import pcb as _pcb
+    codes = {str(name): item.GetNetCode() for name, item in board.GetNetInfo().NetsByName().items()}
+    for netname, items in _pcb.LINKS:
+        net = codes[netname]
+        ok = True
+        for it in items:
+            if it[0] == "via":
+                kx, ky = it[1] + 31.0, 100.0 - it[2]
+                ok = ok and occ.free(kx, ky, net)
+            else:
+                pts = [(x + 31.0, 100.0 - y) for x, y in it[3]]
+                for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+                    ok = ok and occ.segment_free(x0, y0, x1, y1, net, it[2], it[1])
+        if not ok:
+            print(f"LINK BLOCKED: {netname}")
+            skipped.append(f"link[{netname}] blocked")
+            continue
+        for it in items:
+            if it[0] == "via":
+                kx, ky = it[1] + 31.0, 100.0 - it[2]
+                add_via(board, kx, ky, net); occ.add(kx, ky, net)
+            else:
+                layer = pcbnew.B_Cu if it[1] == "B" else pcbnew.F_Cu
+                pts = [(x + 31.0, 100.0 - y) for x, y in it[3]]
+                for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+                    add_track(board, x0, y0, x1, y1, it[2], layer, net); occ.add_seg(x0, y0, x1, y1, it[2], net, it[1])
+
 def fanout(board):
     occ = Occupancy(board)
     netnames = {code: name for name, code in board.GetNetInfo().NetsByName().items()} if False else None
@@ -226,6 +257,7 @@ def fanout(board):
             import escape
             bga_fp = fp
             escape_stats = escape.escape_bga(board, fp, occ, PLANE_NETS)   # signals out first
+            add_links(board, occ, skipped)                                  # then the island links
         c = fp.GetPosition(); cx, cy = pcbnew.ToMM(c.x), pcbnew.ToMM(c.y)
         pads = list(fp.Pads())
         if is_bga:

@@ -33,7 +33,7 @@ def prepare():
     added, skipped, esc = fanout.fanout(board)
     fill(board)
     pcbnew.SaveBoard(PCB, board)
-    print(f"BGA escapes: {esc['F']} on F.Cu, {esc['B']} via B.Cu; not escaped: {esc['left']}")
+    print(f"BGA escapes: {esc['F']} on F.Cu, {esc['B']} via B.Cu; pairs kept together: {esc.get('pairs')}; not escaped: {esc['left']}")
     print(f"fan-out: {added} vias added; {len(skipped)} pads without a free spot: {skipped[:12]}")
     shutil.copy(PCB, os.path.join(ROOT, "artix_m2_canfd_unrouted.kicad_pcb"))
     if not pcbnew.ExportSpecctraDSN(board, DSN):

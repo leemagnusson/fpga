@@ -8,6 +8,18 @@ from sexp import W, q, num, uid
 
 LIB = "artix_m2_canfd"
 
+# M.2 card-edge geometry, top view (component side) with the connector edge
+# down: pin 1 at the right, pin 75 at the left, key-M slot next to pin 75.
+# From the PCIe M.2 spec module drawing (as reproduced in the SNIA/PCI-SIG
+# M.2 webcast slides) and cross-checked against the CRImier NGFF footprints.
+M2_TONGUE_HALF = 9.925   # the connector tongue is 19.85 wide; the card is 22
+M2_TONGUE_H = 4.0        # tongue height from the edge to the 1.075 mm shoulders
+M2_TONGUE_R = 0.5        # inside fillet where the tongue meets the shoulder
+M2_PIN1_X = 9.25         # fingers centred on the card: 18.5 between pins 1 and 75
+M2_KEY_W, M2_KEY_D = 1.2, 3.5                 # key-M slot, round-ended
+M2_KEY_C = M2_PIN1_X - 15.375                 # centred on the removed pads 59-66
+M2_MOUNT_R = 1.75        # 3.5 mm semicircular mount notch centred on the far edge
+
 def _hdr(w, name, desc, attr="smd"):
     w.open(f"footprint {q(name)}")
     w.line("(version 20241229)")
@@ -221,16 +233,12 @@ def m2_edge(name="M2_Edge_2280_KeyM", desc="M.2 card-edge gold fingers, 75 posit
     """Geometry from the PCIe M.2 spec rev 1.0 figures 16/17 and table 48:
     0.5 mm pitch, odd pins on top (38 x 2.0 mm long), even pins on bottom
     (37 x 2.5 mm long) staggered 0.25 mm; pin 1 nearest the right edge
-    (top view); finger span 19.85 from the right (datum E) edge.
+    (top view). The fingers are centred on the 19.85 mm wide connector
+    tongue (M2_* constants above), 0.5 mm in from its sides.
     Origin: card centreline, at the connector edge (y = 0, card extends to -y)."""
     w = W(); _hdr(w, name, desc, attr="smd exclude_from_pos_files allow_soldermask_bridges")
     pad_w = 0.35
-    # pin 1 pad right edge is 22 - 19.85 - (card left margin). Fingers span 19.85 mm measured
-    # from the right card edge to the far (left) edge of pin 75. Right margin = 22 - 19.85 - span? Spec:
-    # the 19.85 dimension runs from the left edge of pin 75's pad to datum E (right card edge).
-    right_edge = 11.0                      # card is 22 wide, centred
-    x_pin75_left = right_edge - 19.85      # = -8.85
-    x_pin1_center = x_pin75_left + pad_w/2 + 37 * 0.5   # 18.5 mm between pin 75 and pin 1 centres
+    x_pin1_center = M2_PIN1_X              # pin 75 centre at -M2_PIN1_X, 18.5 mm apart
     keyed = set(range(59, 67))
     for n in range(1, 76):
         if n in keyed:
