@@ -3,12 +3,22 @@
     python3 gen/pcbway.py                 # write build/pcbway/<board>.zip (gerbers, drills, IPC-356 netlist,
                                           #   BOM, pick-and-place, fab notes) from artix_m2_canfd.kicad_pcb
     python3 gen/pcbway.py --upload        # ... and send it to PCBWay; prints the quote page URL to open
+    python3 gen/pcbway.py --quote         # price and lead-time table for the PCB_SPEC options (partner API)
+    python3 gen/pcbway.py --order 10      # add 10 boards with those options and the files to your PCBWay cart
     python3 gen/pcbway.py --board other.kicad_pcb --out somewhere
 
 The files follow PCBWay's "PCBWay Plug-in for KiCad" (MIT, github.com/pcbway/PCBWay-Plug-in-for-Kicad):
 same plot options, same layer set, same BOM and position columns, same endpoint
-(https://www.pcbway.com/Common/KiCadUpFile/). The upload is anonymous; the URL it
-returns opens the pre-filled quote page where you log in and add it to the cart.
+(https://www.pcbway.com/Common/KiCadUpFile/). That upload is anonymous and only
+carries size and layer count; the quote page it opens still needs the options
+picked by hand (the script prints the list).
+
+--quote and --order use PCBWay's partner API (api-partner.pcbway.com) instead, which
+takes every option (PCB_SPEC below: 6 layers, 0.8 mm, ENIG, hard gold fingers with
+a bevel, 4/4 mil, 0.2 mm vias ...) and puts the order straight into the cart with
+the zip attached. It needs an API key from PCBWay in the environment variable
+PCBWAY_API_KEY (ask them for one; the key is tied to your account). Set
+PCBWAY_API_URL to use their production host if they give you a different one.
 Needs KiCad's pcbnew Python module (KiCad 9)."""
 import argparse, csv, io, json, os, shutil, sys, tempfile, urllib.request, uuid, zipfile
 import pcbnew
@@ -17,6 +27,28 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 BASE_URL = "https://www.pcbway.com"
 UPLOAD = BASE_URL + "/Common/KiCadUpFile/"
+API_URL = os.environ.get("PCBWAY_API_URL", "https://api-partner.pcbway.com")
+
+# PCB options for this board, in the partner API's vocabulary (api-partner.pcbway.com/Help).
+# Length/Width/Layers are filled from the board. The same choices apply to the web form.
+PCB_SPEC = {
+    "BoardType": "Single PCB", "DesignInPanel": 1,
+    "Material": "FR-4", "FR4Tg": "S1000H TG150",          # the TG150 option offered for 4+ layers
+    "Thickness": 0.8,                                      # M.2: 0.8 mm
+    "cxipt": "L1:1,L2:1,L3:1,L4:1,L5:1,L6:1",             # layer order, 1 oz each
+    "MinTrackSpacing": "4/4mil",                           # 0.1 mm track and clearance
+    "MinHoleSize": 0.2,                                    # 0.2 mm via drill
+    "SolderMask": "Green", "Silkscreen": "White", "SilkSides": 0,
+    "SurfaceFinish": "Immersion gold", "GoldThickness": "1",   # ENIG, 1 u" Au
+    "Goldfingers": "Yes", "GoldFingersBevelling": "Yes (20°)", # M.2 card edge
+    # prototype: ENIG on the fingers too (2 u"), good for a few dozen insertions. For boards that ship,
+    # use "GoldPlatingType": "Hard Gold", "AUGoldThickness": "30", "NiGoldThickness": "120" instead.
+    "GoldPlatingType": "Immersion gold", "GoldFingerThickness": "2",
+    "ViaProcess": "Tenting vias",
+    "FinishedCopper": "1 oz Cu", "InsideThickness": "1",
+    "RemoveProductNo": "No", "ImpedanceControl": "No",     # PCIe pairs: 100 ohm by geometry, set "Yes" for a controlled stackup
+    "ViaPadOrViaResin": "No",
+}
 
 # layers PCBWay's plugin plots (those that exist on the board)
 PLOT_PLAN = [("F.Cu", pcbnew.F_Cu, "Top Layer"), ("B.Cu", pcbnew.B_Cu, "Bottom Layer")] + \
@@ -168,8 +200,9 @@ def bom_and_positions(board, out_dir):
 
 
 def board_params(board):
-    bb = board.GetBoardEdgesBoundingBox()
-    return {"boardWidth": pcbnew.ToMM(bb.GetWidth()), "boardHeight": pcbnew.ToMM(bb.GetHeight()),
+    bb = board.GetBoardEdgesBoundingBox()      # includes the outline stroke (0.05 mm), hence the correction
+    stroke = 0.05
+    return {"boardWidth": round(pcbnew.ToMM(bb.GetWidth()) - stroke, 2), "boardHeight": round(pcbnew.ToMM(bb.GetHeight()) - stroke, 2),
             "boardLayer": board.GetCopperLayerCount()}
 
 
@@ -191,11 +224,64 @@ def upload(zip_path, params):
     return answer["redirect"] if answer["redirect"].startswith("http") else BASE_URL + answer["redirect"]
 
 
+def spec_for(board, qty):
+    p = board_params(board)
+    spec = dict(PCB_SPEC)
+    spec.update({"Length": round(max(p["boardWidth"], p["boardHeight"]), 2),
+                 "Width": round(min(p["boardWidth"], p["boardHeight"]), 2),
+                 "Layers": p["boardLayer"], "Qty": qty})
+    return spec
+
+
+def print_spec(spec):
+    print("PCBWay options for this board (pick the same on the web form):")
+    for k, v in spec.items():
+        if k not in ("BoardType", "DesignInPanel", "cxipt", "RemoveProductNo", "ViaPadOrViaResin", "SilkSides"):
+            print(f"  {k:22s} {v}")
+
+
+def api(path, payload):
+    key = os.environ.get("PCBWAY_API_KEY")
+    if not key:
+        raise SystemExit("set PCBWAY_API_KEY (an API key from PCBWay) to use --quote / --order")
+    req = urllib.request.Request(API_URL + path, data=json.dumps(payload).encode(), method="POST",
+                                 headers={"api-key": key, "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=120) as rsp:
+        answer = json.loads(rsp.read().decode())
+    if answer.get("Status") != "ok":
+        raise SystemExit(f"PCBWay API error: {answer.get('ErrorText') or answer}")
+    return answer
+
+
+def quote(spec):
+    answer = api("/api/Pcb/PcbQuotation", dict(spec, returnPriceMatirx=False))
+    print(f"PCBWay quote for {spec['Qty']} boards:")
+    for item in answer.get("priceList", []):
+        kind = "express" if item.get("Express") else ("standard" if item.get("Standard") else "")
+        print(f"  {item.get('BuildDays'):>3} days  {item.get('BuildText', ''):28s} {item.get('Price'):>9.2f} USD  {kind}")
+    return answer
+
+
+def order(spec, zip_path, build_days, email, note):
+    import base64
+    payload = dict(spec, DataZipFile=base64.b64encode(open(zip_path, "rb").read()).decode(),
+                   PcbFileName=os.path.basename(zip_path), BuildDays=build_days, BuyerEmail=email or "",
+                   Note=note)
+    answer = api("/api/Pcb/PlaceOrder", payload)
+    print(f"added to the PCBWay cart: order {answer.get('OrderNo')}, {answer.get('Price')} USD, delivery {answer.get('DeliveryDate')}")
+    return answer
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--board", default=os.path.join(ROOT, "artix_m2_canfd.kicad_pcb"))
     ap.add_argument("--out", default=os.path.join(ROOT, "build", "pcbway"))
     ap.add_argument("--upload", action="store_true", help="send the package to PCBWay and print the quote page URL")
+    ap.add_argument("--quote", action="store_true", help="price and lead times from the partner API (needs PCBWAY_API_KEY)")
+    ap.add_argument("--order", type=int, metavar="QTY", help="add QTY boards to the PCBWay cart via the partner API")
+    ap.add_argument("--qty", type=int, default=5, help="quantity for --quote (default 5)")
+    ap.add_argument("--build-days", type=int, default=None, help="production cycle for --order (default: the standard one from the quote)")
+    ap.add_argument("--email", default=None, help="buyer e-mail for --order (where PCBWay sends file questions)")
     args = ap.parse_args()
     board = pcbnew.LoadBoard(args.board)
     name = os.path.splitext(os.path.basename(args.board))[0]
@@ -214,14 +300,28 @@ def main():
     params = board_params(board)
     print(f"{zip_path}: {len(layers)} gerber layers, {n_pos} placements, {n_bom} BOM lines, "
           f"{params['boardWidth']:.1f} x {params['boardHeight']:.1f} mm, {params['boardLayer']} layers")
+    spec = spec_for(board, args.order or args.qty)
     if args.upload:
         url = upload(zip_path, params)
         print("PCBWay quote page:", url)
+        print_spec(spec)
         try:
             import webbrowser
             webbrowser.open(url)
         except Exception:
             pass
+    if args.quote or args.order:
+        answer = quote(spec)
+        if args.order:
+            days = args.build_days
+            if days is None:
+                std = [i for i in answer.get("priceList", []) if i.get("Standard")] or answer.get("priceList", [])
+                if not std:
+                    raise SystemExit("no production cycle in the quote; pass --build-days")
+                days = std[0]["BuildDays"]
+            order(spec, zip_path, days, args.email, FAB_NOTES)
+    if not (args.upload or args.quote or args.order):
+        print_spec(spec)
 
 
 if __name__ == "__main__":

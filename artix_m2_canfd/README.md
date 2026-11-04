@@ -109,11 +109,21 @@ coupled pairs: Freerouting routes each net on its own.
 python3 gen/pcbway.py            # build/pcbway/artix_m2_canfd.zip: gerbers, drills, IPC-356 netlist,
                                  #   BOM, pick-and-place, fab notes (PCBWay's plugin format)
 python3 gen/pcbway.py --upload   # ... and upload it; prints and opens the PCBWay quote page
+python3 gen/pcbway.py --quote    # price table for the options in PCB_SPEC (needs PCBWAY_API_KEY)
+python3 gen/pcbway.py --order 10 # ten boards with those options into your PCBWay cart (needs the key)
 ```
 
 `gen/pcbway.py` writes the same package as PCBWay's KiCad plugin and uses
 the same anonymous upload endpoint, so the quote page comes up with the
-files attached; log in there to add it to the cart. The BOM carries a
+files attached; log in there, pick the options the script prints (6 layers,
+0.8 mm, TG150, 4/4 mil, 0.2 mm holes, ENIG including the fingers with a
+20 degree bevel, tented vias, 1 oz; hard gold on the fingers for boards
+that ship) and add it to the cart. With an API key
+from PCBWay in `PCBWAY_API_KEY`, `--quote` prints their price and lead-time
+table for those options and `--order QTY` puts the boards in the cart with
+every option set and the files attached (`PCB_SPEC` in the script holds
+the choices; set `ImpedanceControl` to Yes if you want PCBWay to tune the
+stackup for the 100 ohm PCIe pairs). The BOM carries a
 manufacturer part number for every line (generic passives get Yageo
 RC0402 and Murata GRM155 parts, see `DEFAULT_MPN` in `gen/design.py`), DNP
 lines are marked, and the card-edge and Tag-Connect pads are left out. The
