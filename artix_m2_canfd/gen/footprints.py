@@ -95,7 +95,7 @@ def _hdr(w, name, desc, attr="smd"):
         w.line(f"(uuid {q(uid(name, prop))})")
         w.line("(effects (font (size 1 1) (thickness 0.15)))")
         w.close()
-    for prop in ("Datasheet", "Description"):
+    for prop in ("Datasheet", "Description", "MPN"):      # filled in per part when the board is written
         w.open(f"property {q(prop)} \"\"")
         w.line("(at 0 0 0)")
         w.line("(layer \"F.Fab\")")
@@ -229,7 +229,7 @@ def osc_2520(name="Oscillator_2520_4pin", desc="2.5x2.0 mm 4-pad oscillator, pin
     _model(w, name); w.close(); return name, w.text()
 
 def tag_connect_tc2050(name="TagConnect_TC2050-NL", desc="Tag-Connect TC2050-IDC-NL 2x5 pogo pad footprint, no legs"):
-    w = W(); _hdr(w, name, desc, attr="smd exclude_from_pos_files")
+    w = W(); _hdr(w, name, desc, attr="smd exclude_from_bom exclude_from_pos_files")
     # pads 0.787 mm (31 mil) round-ish, pitch 1.27, two rows 1.27 apart; pin 1 top-left, numbering per row
     for i in range(5):
         x = -2.54 + i * 1.27
@@ -299,7 +299,7 @@ def m2_edge(name="M2_Edge_2280_KeyM", desc="M.2 card-edge gold fingers, 75 posit
     (top view). The fingers are centred on the 19.85 mm wide connector
     tongue (M2_* constants above), 0.5 mm in from its sides.
     Origin: card centreline, at the connector edge (y = 0, card extends to -y)."""
-    w = W(); _hdr(w, name, desc, attr="smd exclude_from_pos_files allow_soldermask_bridges")
+    w = W(); _hdr(w, name, desc, attr="smd exclude_from_bom exclude_from_pos_files allow_soldermask_bridges")
     pad_w = 0.35
     x_pin1_center = M2_PIN1_X              # pin 75 centre at -M2_PIN1_X, 18.5 mm apart
     keyed = set(range(59, 67))

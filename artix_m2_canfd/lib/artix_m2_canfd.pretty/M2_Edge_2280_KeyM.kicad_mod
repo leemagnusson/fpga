@@ -4,7 +4,7 @@
 	(generator_version "9.0")
 	(layer "F.Cu")
 	(descr "M.2 card-edge gold fingers, 75 positions, key M (pins 59-66 removed). Pads on both sides; card outline drawn separately.")
-	(attr smd exclude_from_pos_files allow_soldermask_bridges)
+	(attr smd exclude_from_bom exclude_from_pos_files allow_soldermask_bridges)
 	(property "Reference" "REF**"
 		(at 0 -3 0)
 		(layer "F.Fab")
@@ -29,6 +29,13 @@
 		(layer "F.Fab")
 		(hide yes)
 		(uuid "8b455dc0-d2d1-531e-ad3a-b2550b2ddb7f")
+		(effects (font (size 1 1) (thickness 0.15)))
+	)
+	(property "MPN" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "82f4d5f2-6f9c-521d-b065-b9542d129d82")
 		(effects (font (size 1 1) (thickness 0.15)))
 	)
 	(pad "1" smd rect

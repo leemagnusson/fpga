@@ -369,7 +369,7 @@
 		(property "Value" "TagConnect_JTAG" (at -7.62 -8.89 0) (effects (font (size 1.27 1.27))))
 		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-		(property "Description" "Tag-Connect TC2050 JTAG pads (Xilinx: VREF, TMS, GND, TCK, GND, TDO, TDI)" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
+		(property "Description" "Tag-Connect TC2050 JTAG pads, no part fitted (cable TC2050-IDC-NL; Xilinx: VREF, TMS, GND, TCK, GND, TDO, TDI)" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 		(symbol "TagConnect_JTAG_1_1"
 			(rectangle (start -7.62 7.62) (end 7.62 -7.62) (stroke (width 0.254) (type default)) (fill (type background)))
 			(pin passive line (at -10.16 5.08 0) (length 2.54) (name "VREF" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))

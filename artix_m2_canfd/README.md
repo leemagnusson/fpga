@@ -103,6 +103,23 @@ beyond their planes, and the FPGA's signal balls are left to the router.
 After the autorouter, re-route the eight PCIe pairs and REFCLK by hand as
 coupled pairs: Freerouting routes each net on its own.
 
+## Fabrication and assembly (PCBWay)
+
+```sh
+python3 gen/pcbway.py            # build/pcbway/artix_m2_canfd.zip: gerbers, drills, IPC-356 netlist,
+                                 #   BOM, pick-and-place, fab notes (PCBWay's plugin format)
+python3 gen/pcbway.py --upload   # ... and upload it; prints and opens the PCBWay quote page
+```
+
+`gen/pcbway.py` writes the same package as PCBWay's KiCad plugin and uses
+the same anonymous upload endpoint, so the quote page comes up with the
+files attached; log in there to add it to the cart. The BOM carries a
+manufacturer part number for every line (generic passives get Yageo
+RC0402 and Murata GRM155 parts, see `DEFAULT_MPN` in `gen/design.py`), DNP
+lines are marked, and the card-edge and Tag-Connect pads are left out. The
+notes file in the zip lists the stackup, 0.8 mm thickness, ENIG with hard
+gold and a bevel on the fingers, and the 0.1 mm track/clearance.
+
 ## Files
 
 - `gen/design.py`: the circuit as parts, pins and nets, with datasheet pin
@@ -111,6 +128,7 @@ coupled pairs: Freerouting routes each net on its own.
   patterns, so nothing depends on the KiCad library version.
 - `gen/symbols.py`, `gen/schematic.py`, `gen/pcb.py`: writers for the
   symbol library, the schematic sheets and the board (zones, planes, placement).
+- `gen/pcbway.py`: fabrication/assembly package and upload for PCBWay.
 - `gen/escape.py`, `gen/fanout.py`, `gen/route.py`: BGA escapes, plane fan-out and the
   Freerouting round trip.
 - `lib/`: generated symbol and footprint libraries (project-local tables

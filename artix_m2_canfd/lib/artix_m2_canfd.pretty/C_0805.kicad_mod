@@ -31,6 +31,13 @@
 		(uuid "e9584d5a-e203-5474-86a6-7fa7399038bb")
 		(effects (font (size 1 1) (thickness 0.15)))
 	)
+	(property "MPN" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "183f5ede-a9b3-5894-802b-6e793d2d1351")
+		(effects (font (size 1 1) (thickness 0.15)))
+	)
 	(pad "1" smd roundrect
 		(at -1 0)
 		(size 1 1.4)

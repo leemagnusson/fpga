@@ -49,9 +49,19 @@ def two_pin(d, prefix, symbol, value, footprint, net1, net2, sheet, mpn="", desc
     part.zone = zone or sheet
     return d.add(part)
 
+# Manufacturer part numbers for the generic passives (assembly quotes need one per line):
+# Yageo RC0402 1 % thick film, Murata GRM155 0402 capacitors.
+DEFAULT_MPN = {
+    ("R", "0402", "0R"): "RC0402JR-070RL", ("R", "0402", "1k"): "RC0402FR-071KL", ("R", "0402", "4k7"): "RC0402FR-074K7L",
+    ("R", "0402", "10k"): "RC0402FR-0710KL", ("R", "0402", "68k"): "RC0402FR-0768KL", ("R", "0402", "100k"): "RC0402FR-07100KL",
+    ("R", "0402", "200k"): "RC0402FR-07200KL", ("R", "0402", "732k"): "RC0402FR-07732KL",
+    ("C", "0402", "100n"): "GRM155R71C104KA88D", ("C", "0402", "1u"): "GRM155R61A105KE15D", ("C", "0402", "1n"): "GRM1555C1H102JA01D",
+}
 def R(d, value, a, b, sheet, mpn="", place=None, size="0402", zone=None, side="F"):
+    mpn = mpn or DEFAULT_MPN.get(("R", size, value), "")
     return two_pin(d, "R", "R", value, fp(f"R_{size}"), a, b, sheet, mpn, f"Resistor {value} {size}", place, zone, side)
 def C(d, value, a, b, sheet, mpn="", place=None, size="0402", voltage="", zone=None, side="F"):
+    mpn = mpn or DEFAULT_MPN.get(("C", size, value), "")
     return two_pin(d, "C", "C", value, fp(f"C_{size}"), a, b, sheet, mpn, f"Capacitor {value} {voltage} {size}".strip(), place, zone, side)
 def L(d, value, a, b, sheet, mpn="", place=None, zone=None, side="F"):
     return two_pin(d, "L", "L", value, fp("L_0806"), a, b, sheet, mpn, f"Inductor {value} 2016", place, zone, side)
@@ -230,7 +240,7 @@ def build(pkg_path):
     ic(d, "J2", "TC2050 JTAG", "TagConnect_JTAG", fp("TagConnect_TC2050-NL"),
        [(1, "VREF", V3, "L"), (2, "TMS", "JTAG_TMS", "L"), (3, "GND", GND, "L"), (4, "TCK", "JTAG_TCK", "L"), (5, "GND", GND, "L"),
         (6, "TDO", "JTAG_TDO", "R"), (7, "TDI", "JTAG_TDI", "R"), (8, "NC", None, "R"), (9, "NC", None, "R"), (10, "GND", GND, "R")],
-       "fpga_io", "TC2050-IDC-NL (cable)", "Tag-Connect TC2050 JTAG pads (Xilinx: VREF, TMS, GND, TCK, GND, TDO, TDI)",
+       "fpga_io", "", "Tag-Connect TC2050 JTAG pads, no part fitted (cable TC2050-IDC-NL; Xilinx: VREF, TMS, GND, TCK, GND, TDO, TDI)",
        place=(0, 44.3, 0, "F"))
     d.parts[-1].zone = "fixed"   # its alignment holes go through the board: keep it in its own band
     ic(d, "X1", "100 MHz 3.3V", "OSC_2520", fp("Oscillator_2520_4pin"),
@@ -324,8 +334,9 @@ def build(pkg_path):
            [(1, "I/O1", f"CAN{i}_H", "L"), (2, "I/O2", f"CAN{i}_L", "L"), (3, "GND", GND, "R")],
            "can", "PESD2CANUX", "CAN bus ESD protection")
         R(d, "120R", f"CAN{i}_H", f"CAN{i}_TERM", "can", "RC0402FR-07120RL")
-        R(d, "0R", f"CAN{i}_TERM", f"CAN{i}_L", "can", "DNP: fit for bus-end termination")
+        R(d, "0R", f"CAN{i}_TERM", f"CAN{i}_L", "can")
         d.parts[-1].dnp = True
+        d.parts[-1].description += " (DNP: fit for bus-end termination)"
         conn += [(3 * i + 1, f"CAN{i}_H", f"CAN{i}_H"), (3 * i + 2, f"CAN{i}_L", f"CAN{i}_L"), (3 * i + 3, "GND", GND)]
     # Two 6-way headers at the far end, either side of the mount notch (a
     # wider header would collide with the notch): J3 buses 0+1, J4 buses 2+3,

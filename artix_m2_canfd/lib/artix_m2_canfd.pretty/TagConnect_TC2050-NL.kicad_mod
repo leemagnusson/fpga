@@ -4,7 +4,7 @@
 	(generator_version "9.0")
 	(layer "F.Cu")
 	(descr "Tag-Connect TC2050-IDC-NL 2x5 pogo pad footprint, no legs")
-	(attr smd exclude_from_pos_files)
+	(attr smd exclude_from_bom exclude_from_pos_files)
 	(property "Reference" "REF**"
 		(at 0 -3 0)
 		(layer "F.Fab")
@@ -29,6 +29,13 @@
 		(layer "F.Fab")
 		(hide yes)
 		(uuid "9419e86c-4802-5bfe-b720-ca490f1048b5")
+		(effects (font (size 1 1) (thickness 0.15)))
+	)
+	(property "MPN" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "c3a5b2c7-d30c-5ee9-becc-72e89eb03e44")
 		(effects (font (size 1 1) (thickness 0.15)))
 	)
 	(pad "1" smd circle

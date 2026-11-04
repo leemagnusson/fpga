@@ -162,6 +162,9 @@ def _embed_footprint(w, fp_text, libname, part, nets, x, y, rot, side):
     body = body.replace('(layer "F.Cu")', f'(layer "{"B" if side == "B" else "F"}.Cu")', 1)
     body = re.sub(r'\(property "Reference" "REF\*\*"', f'(property "Reference" {q(part.ref)}', body)
     body = re.sub(r'\(property "Value" "[^"]*"', f'(property "Value" {q(part.value)}', body)
+    # part data as footprint fields, so BOM tools and the fab uploaders can read them off the board
+    body = re.sub(r'\(property "MPN" ""', f'(property "MPN" {q(part.mpn)}', body)
+    body = re.sub(r'\(property "Description" ""', f'(property "Description" {q(part.description)}', body)
     if side == "B":
         for a, b in (("F.Cu", "B.Cu"), ("F.Paste", "B.Paste"), ("F.Mask", "B.Mask"), ("F.SilkS", "B.SilkS"),
                      ("F.Fab", "B.Fab"), ("F.CrtYd", "B.CrtYd")):
