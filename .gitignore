@@ -8,3 +8,18 @@ reports/
 routed_design.dcp
 clockinfo.txt
 .claude/settings.local.json
+
+# Python
+__pycache__/
+
+# Out-of-tree kernel module builds (litefury_canfd/sw/driver)
+*.ko
+*.o
+*.mod
+*.mod.c
+*.cmd
+.*.cmd
+Module.symvers
+modules.order
+.module-common.o
+nlviewcommon.logfile

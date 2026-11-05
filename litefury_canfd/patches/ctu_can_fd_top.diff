@@ -1,0 +1,47 @@
+--- third_party/CTU-CAN-FD/src/ctu_can_fd_top.vhd	2026-11-05 14:17:14.488349602 -0800
++++ litefury_canfd/rtl/ctu_can_fd_top.vhd	2026-11-05 14:17:14.486956401 -0800
+@@ -1,3 +1,9 @@
++-- LiteFury CAN FD: project-side override of the CTU CAN FD core's top level.
++-- Identical to third_party/CTU-CAN-FD/src/ctu_can_fd_top.vhd (v2.7-110-g14ff92a5)
++-- except for three added output ports (tx_done, tx_done_txtb_index, sof) that
++-- expose existing internal signals for the TX timestamp capture block. go.tcl
++-- compiles this file into library ctu_can_fd_rtl in place of the submodule's
++-- copy, so the submodule checkout stays untouched. See patches/ for the diff.
+ --------------------------------------------------------------------------------
+ --
+ -- CTU CAN FD IP Core
+@@ -200,7 +206,21 @@
+         -----------------------------------------------------------------------
+         -- Timestamp for time based transmission / reception
+         -----------------------------------------------------------------------
+-        timestamp    : in std_logic_vector(63 downto 0)
++        timestamp    : in std_logic_vector(63 downto 0);
++
++        -----------------------------------------------------------------------
++        -- Transmission done (LiteFury addition): one clk_sys pulse at the
++        -- sample point of the last EOF bit of a frame this node transmitted
++        -- successfully, with the index of the TXT buffer it came from.
++        -- Lets external logic capture a TX timestamp per TXT buffer.
++        -----------------------------------------------------------------------
++        tx_done             : out std_logic;
++        tx_done_txtb_index  : out std_logic_vector(2 downto 0);
++
++        -- Start of frame pulse (LiteFury addition): the same one-clock pulse
++        -- the RX buffer uses to capture a SOF timestamp, for transmitted and
++        -- received frames alike.
++        sof                 : out std_logic
+     );
+ end entity ctu_can_fd_top;
+ 
+@@ -605,6 +625,11 @@
+ begin
+ 
+     -- Test probe for observation
++    -- Transmission-done pulse for external TX timestamp capture (LiteFury addition)
++    tx_done            <= tran_valid;
++    tx_done_txtb_index <= curr_txtb_index;
++    sof                <= sof_pulse;
++
+     test_probe.rx_trigger_nbs <= pc_rx_trigger;
+     test_probe.rx_trigger_wbs <= rx_triggers(0);
+     test_probe.tx_trigger <= tx_trigger;

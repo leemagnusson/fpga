@@ -86,6 +86,47 @@ explicit quanta the real rates are exact: 80 tq at 12.5 ns = 1 Mbit/s and
 10 tq = 8 Mbit/s, both sampled at 80 %. If you want a different rate,
 compute it for 80 MHz and pass `tq 10` with the segment counts.
 
+### Hardware timestamps
+
+The core stamps every received frame with a 64-bit counter (12.5 ns ticks
+from the 80 MHz CAN clock), and this design adds a capture block that stamps
+transmitted frames with the same counter. Both are captured at the start of
+frame: the core's own SOF pulse samples the counter, the RX buffer stores it
+(RX_SETTINGS.RTSOP = SOF, set by the driver), and the capture block copies
+it into a per-TXT-buffer latch when the core signals transmit-done for that
+buffer. A frame that lost arbitration is re-sampled at its retry's SOF, so
+the TX stamp is the SOF of the attempt that went through. The mainline driver discards the RX timestamps and
+knows nothing of the TX latches, so `sw/driver/` carries the kernel v7.0
+driver with a small patch: it keeps the RX stamp, reads the TX latch for the
+echo frame, and advertises hardware timestamping through the kernel's
+generic CAN helpers. Timestamps are raw hardware time (the counter starts at
+FPGA configuration); there is no PTP clock yet.
+
+```sh
+cd sw/driver && make -C /lib/modules/$(uname -r)/build M=$PWD modules
+sudo ../hwts-load.sh          # swaps the in-tree modules for these, prints ethtool -T
+sudo ../can-up.sh can0
+candump -H can0               # hardware RX timestamps
+sudo ./hwts_test.py can0 10   # TX (error queue) and RX stamps for sent frames
+```
+
+The patch detects the capture block by a signature word, so the same modules
+work unchanged on hardware without it (timestamping stays software-only).
+It also fixes `presume-ack`: mainline maps it to the core's ACF bit
+("acknowledge forbidden", the node stops sending ACK), whereas the kernel's
+meaning is the core's STM self-test mode (a frame counts as sent without an
+ACK). With the fix a single card can test itself: jumper J5 to H5 and bring
+the interface up with `loopback on presume-ack on`. Verified 2026-11-05: the
+TX and RX stamps of a looped-back frame are identical (before switching to
+SOF capture, the EOF-based stamps were exactly one nominal bit apart, the
+core committing a received frame at the sixth EOF bit and signalling
+transmit-done at the seventh).
+
+The core change is confined to `rtl/ctu_can_fd_top.vhd`, a copy of the
+core's top level with the three outputs added; `go.tcl` compiles it into the
+core's library in place of the submodule's file, so the submodule stays
+pristine. `patches/ctu_can_fd_top.diff` shows the difference.
+
 If you prefer not to use another vendor's PCI ID, build with
 `PCI_VENDOR_ID=0x10EE PCI_DEVICE_ID=0xCAFD` and tell the driver about it at
 run time (the last field selects the "with ID register" layout):
@@ -102,7 +143,12 @@ offset 0x0000 holds an ID word whose low nibble is the number of cores (1),
 and 0x4050 is the "Avalon-to-PCIe interrupt enable" register, implemented
 here as a real interrupt gate. BAR1 (16 KB) is the CAN core's register map.
 `rtl/can_wrap_bd.v` presents it to the block design as an AXI4-Lite slave
-and bridges to the core's APB4 port; `rtl/can_wrap.vhd` instantiates the
+and bridges to the core's APB4 port, and answers offsets 0x1000-0x1FFF
+itself with the TX timestamp capture block (0x1000 signature `0x54534C46`,
+0x1004 counter rate in Hz, 0x1008 latch count, 0x1010 + 8*i the 64-bit stamp
+of TXT buffer i). The core's top level gets three extra outputs for this
+(`tx_done`, `tx_done_txtb_index`, `sof`, exported from existing internal
+signals) via the override `rtl/ctu_can_fd_top.vhd`; `rtl/can_wrap.vhd` instantiates the
 core itself, whose RTL is compiled into its own library `ctu_can_fd_rtl`
 (the Vivado IP package shipped with the core is out of date relative to its
 RTL, so it is not used). `rtl/misc_regs.vhd` also provides the core's 64-bit timestamp

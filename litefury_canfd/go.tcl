@@ -44,6 +44,11 @@ if {[file exists $can_src/slf_rtl.yml]} {
         if {[regexp {^\s*-\s*file:\s*(\S+)} $line -> f]} { lappend can_files $can_src/$f }
     }
     close $fh
+    # rtl/ctu_can_fd_top.vhd overrides the core's top level (adds the
+    # tx_done/tx_done_txtb_index/sof outputs for the TX timestamp capture
+    # block) so the submodule checkout stays pristine; see patches/.
+    set can_files [lsearch -all -inline -not -glob $can_files */src/ctu_can_fd_top.vhd]
+    lappend can_files $here/rtl/ctu_can_fd_top.vhd
     add_files $can_files
     set_property library ctu_can_fd_rtl [get_files $can_files]
     add_files [list $here/rtl/can_wrap.vhd $here/rtl/can_wrap_bd.v]
