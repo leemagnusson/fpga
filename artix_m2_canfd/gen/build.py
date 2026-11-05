@@ -33,10 +33,10 @@ def main():
     sheets = []
     for i, name in enumerate(d.sheets, start=2):
         suuid = uid("sheetpath", name)
-        parts = [p for p in d.parts if p.sheet == name]
+        parts = [p for p in d.parts if any(p.sheet_of(u) == name for u in p.units())]
         fname = f"{name}.kicad_sch"
         schematic.write_sheet(os.path.join(ROOT, fname), PROJECT, root_uuid, suuid,
-                              d.sheet_titles.get(name, name), i, parts, geos, lib_text)
+                              d.sheet_titles.get(name, name), i, parts, geos, lib_text, name)
         sheets.append((name, d.sheet_titles.get(name, name), fname, suuid, i))
     schematic.write_root(os.path.join(ROOT, f"{PROJECT}.kicad_sch"), PROJECT, root_uuid, sheets)
     schematic.write_project(ROOT, PROJECT)

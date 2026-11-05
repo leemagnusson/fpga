@@ -150,21 +150,31 @@ gold and a bevel on the fingers, and the 0.1 mm track/clearance.
 
 The schematic is a labelled netlist: each part is drawn with a global
 label on every pin, split over five sheets (M.2/PCIe, FPGA I/O and
-configuration, FPGA power, supplies, CAN). It is complete and checkable but
-not pretty; the PCB is placed but not routed.
+configuration, FPGA power, supplies, CAN). Parts are drawn in blocks: each
+IC with the passives that belong to it (`Part.owner`, set automatically to
+the last IC declared, or explicitly), the IC on top and the passives in
+rows below it, lying horizontally so their labels read left to right, with
+a titled dashed box around the block. It is complete and checkable but not
+pretty.
 
 ## Status and what to check before ordering
 
 Generated, electrical rule check clean, design rule check clean apart from
 the unrouted connections (KiCad 9.0.8). KiCad's own netlist export of the
 schematic matches the Python design net for net. Not built or tested.
+On the board the same ownership drives placement and grouping: within a
+zone every IC is packed as a block with its own passives beside and below
+it, and each owner becomes a KiCad group (select one part, press Ctrl-G to
+pick the group) so the transceiver with its bypass capacitors, ESD diode and
+terminations, or a regulator with its inductor and capacitors, moves as one.
 Parts are auto-placed into zones (the PCIe coupling capacitors are fixed
 in line with their fingers, pads along the trace, P and N set 0.4 mm
 outward so both jog the same amount, with the PCIe-zone resistors beside them;
-configuration above the FPGA, power above that, CAN at the far end; on the
-back the FPGA decoupling just beyond the BGA in one zone per rail so every
-capacitor sits over its plane, the transceiver-rail decoupling below the
-GTP corner, then the LEDs, feedback dividers and CAN terminations). Zones
+configuration above the FPGA, power above that, the CAN transceivers at the
+far end; on the back the FPGA decoupling just beyond the BGA in one zone per
+rail so every capacitor sits over its plane, the transceiver-rail decoupling
+below the GTP corner, then the LEDs, the feedback dividers, and under the
+transceivers their bypass capacitors, ESD diodes and terminations). Zones
 stop 3 mm short of the long edges so each side keeps a routing corridor on
 both layers; treat the placement as a starting point.
 Note that `kicad-cli` ignores the `.kicad_dru` rule file, so the project

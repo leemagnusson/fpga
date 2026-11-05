@@ -10,7 +10,13 @@ SCH_VERSION = "20250114"
 PAPER = "A3"           # 420 x 297 mm
 MARGIN = 15.0
 ROW_GAP = 6.0 * 2.54
-COL_GAP = 40.0
+COL_GAP = 20.0
+TWO_PIN_ROT = 90       # two-pin parts drawn horizontally
+CELL_W = 32 * 1.27     # a horizontal two-pin part with a net label at each end
+CELL_H = 10 * 1.27
+PER_ROW = 4            # passives per row inside a block
+IC_LABEL = 22.0        # label room either side of an IC
+BLOCK_PAD = 2 * 1.27
 
 def _snap(v):
     return round(v / 1.27) * 1.27
@@ -18,11 +24,12 @@ def _snap(v):
 def _font(size=1.27, extra=""):
     return f"(effects (font (size {num(size)} {num(size)})) {extra})".replace(" )", ")")
 
-def _prop(w, name, value, x, y, hide=False, justify="left"):
+def _prop(w, name, value, x, y, hide=False, justify="left", angle=0):
     w.open(f"property {q(name)} {q(value)}")
-    w.line(f"(at {num(x)} {num(y)} 0)")
+    w.line(f"(at {num(x)} {num(y)} {angle})")
     h = " (hide yes)" if hide else ""
-    w.line(f"(effects (font (size 1.27 1.27)) (justify {justify}){h})")
+    j = f" (justify {justify})" if justify else ""
+    w.line(f"(effects (font (size 1.27 1.27)){j}{h})")
     w.close()
 
 def _lib_symbols_block(w, lib_text, used):
@@ -61,15 +68,17 @@ def _place_symbol(w, project, root_uuid, sheet_uuid, part, unit, geo, x, y, foot
     """Emit one symbol instance; returns {pin_number: (lx, ly, angle)} label positions."""
     width, height, pos = geo[unit]
     sym_uuid = uid("sym", part.ref, unit)
-    w.open(f"symbol (lib_id {q(f'{LIB}:{part.symbol}')}) (at {num(x)} {num(y)} 0) (unit {unit})")
+    rot = TWO_PIN_ROT if part.symbol in TWO_PIN else 0      # two-pin parts lie horizontally: pin 1 left, pin 2 right
+    w.open(f"symbol (lib_id {q(f'{LIB}:{part.symbol}')}) (at {num(x)} {num(y)} {rot}) (unit {unit})")
     w.line("(exclude_from_sim no)")
     w.line("(in_bom yes)")
     w.line("(on_board yes)")
     w.line(f"(dnp {'yes' if part.dnp else 'no'})")
     w.line(f"(uuid {q(sym_uuid)})")
     if part.symbol in TWO_PIN:
-        _prop(w, "Reference", part.ref, x + 1.27, y - 1.27)
-        _prop(w, "Value", part.value, x + 1.27, y + 1.27)
+        # field angles are relative to the symbol: 90 on a 90-degree symbol reads horizontally
+        _prop(w, "Reference", part.ref, x, y - 3.175, justify="", angle=TWO_PIN_ROT)
+        _prop(w, "Value", part.value, x, y + 3.175, justify="", angle=TWO_PIN_ROT)
     else:
         _prop(w, "Reference", part.ref + (chr(64 + unit) if len(geo) > 1 else ""), x - width/2, y - height/2 - 1.27)
         _prop(w, "Value", part.value, x - width/2, y + height/2 + 1.27)
@@ -91,6 +100,10 @@ def _place_symbol(w, project, root_uuid, sheet_uuid, part, unit, geo, x, y, foot
         if p.unit != unit:
             continue
         px, py, ang = pos[p.number]
+        if rot == 90:                                   # symbol rotated 90 degrees counter-clockwise (y up)
+            px, py, ang = -py, px, (ang + 90) % 360
+        elif rot == 270:
+            px, py, ang = py, -px, (ang + 270) % 360
         labels[p.number] = (x + px, y - py, ang)
     return labels
 
@@ -123,44 +136,78 @@ def _title(w, title, page):
     w.line("(company \"artix_m2_canfd: M.2 2280 Artix-7 CAN FD card\")")
     w.close()
 
-def layout_sheet(parts, geos):
-    """Place units of parts column by column. Returns [(part, unit, x, y)]."""
-    items = []
+def layout_sheet(parts, geos, sheet=None):
+    """Place parts block by block: every IC with the passives it owns, the IC(s) on
+    the top row of the block and the passives in rows of PER_ROW below, lying
+    horizontally so their net labels read left to right. Blocks flow down the
+    sheet in columns. Returns ([(part, unit, x, y)], [(title, x0, y0, x1, y1)])."""
+    blocks = {}
     for part in parts:
-        for unit in part.units():
-            items.append((part, unit))
-    # sort: big symbols first, then by reference
-    def size(item):
-        p, u = item
-        g = geos[p.symbol][u]
-        return -(g[0] * g[1])
-    items.sort(key=lambda it: (size(it), it[0].ref, it[1]))
-    placed = []
-    x = MARGIN + 25
+        blocks.setdefault(part.owner, []).append(part)
+    placed, boxes = [], []
+    x = MARGIN + 10
     y = MARGIN + 10
     col_w = 0
     max_y = 297 - MARGIN
-    for p, u in items:
-        wdt, hgt, _ = geos[p.symbol][u]
-        label_room = 22.0 if p.symbol not in TWO_PIN else 10.0
-        need_h = hgt + ROW_GAP
-        if y + hgt > max_y and placed:
+    for owner, members in blocks.items():
+        heads = [(p, u) for p in members if p.symbol not in TWO_PIN for u in p.units() if sheet is None or p.sheet_of(u) == sheet]
+        passives = [p for p in members if p.symbol in TWO_PIN]
+        if not heads and not passives:
+            continue
+        heads.sort(key=lambda pu: (-(geos[pu[0].symbol][pu[1]][0] * geos[pu[0].symbol][pu[1]][1]), pu[0].ref, pu[1]))
+        # block geometry
+        head_w = sum(geos[p.symbol][u][0] + 2 * IC_LABEL for p, u in heads)
+        head_h = max([geos[p.symbol][u][1] for p, u in heads], default=0.0)
+        rows = (len(passives) + PER_ROW - 1) // PER_ROW
+        pass_w = min(len(passives), PER_ROW) * CELL_W
+        bw = max(head_w, pass_w) + 2 * BLOCK_PAD
+        bh = head_h + (ROW_GAP / 2 if heads else 0) + rows * CELL_H + 2 * BLOCK_PAD + 2.54
+        if y + bh > max_y and placed:                 # next column
             y = MARGIN + 10
             x += col_w + COL_GAP
             col_w = 0
-        cx = _snap(x + wdt/2 + label_room/2)
-        cy = _snap(y + hgt/2)
-        placed.append((p, u, cx, cy))
-        y += need_h
-        col_w = max(col_w, wdt + label_room)
-    return placed
+        x0, y0 = x, y
+        cy = y0 + BLOCK_PAD + 2.54
+        cx = x0 + BLOCK_PAD
+        for p, u in heads:
+            wdt, hgt, _ = geos[p.symbol][u]
+            placed.append((p, u, _snap(cx + IC_LABEL + wdt / 2), _snap(cy + head_h / 2)))
+            cx += wdt + 2 * IC_LABEL
+        cy += head_h + (ROW_GAP / 2 if heads else 0)
+        for i, p in enumerate(passives):
+            r, c = divmod(i, PER_ROW)
+            placed.append((p, 1, _snap(x0 + BLOCK_PAD + c * CELL_W + CELL_W / 2), _snap(cy + r * CELL_H + CELL_H / 2)))
+        title = owner
+        head_part = next((p for p, u in heads if p.ref == owner), None)
+        if head_part is not None:
+            title = f"{owner}  {head_part.value}"
+        boxes.append((title, x0, y0, x0 + bw, y0 + bh))
+        y += bh + ROW_GAP / 2
+        col_w = max(col_w, bw)
+    return placed, boxes
 
-def write_sheet(path, project, root_uuid, sheet_uuid, title, page, parts, geos, lib_text):
+def _box(w, title, x0, y0, x1, y1):
+    w.open("rectangle")
+    w.line(f"(start {num(x0)} {num(y0)})")
+    w.line(f"(end {num(x1)} {num(y1)})")
+    w.line("(stroke (width 0.1524) (type dash))")
+    w.line("(fill (type none))")
+    w.line(f"(uuid {q(uid('box', title, x0, y0))})")
+    w.close()
+    w.open(f"text {q(title)}")
+    w.line(f"(at {num(x0 + 1.27)} {num(y0 - 0.6)} 0)")
+    w.line("(effects (font (size 1.5 1.5) bold) (justify left bottom))")
+    w.line(f"(uuid {q(uid('boxtitle', title, x0, y0))})")
+    w.close()
+
+def write_sheet(path, project, root_uuid, sheet_uuid, title, page, parts, geos, lib_text, sheet=None):
     w = W()
     _sheet_header(w, sheet_uuid)
     _title(w, title, page)
     _lib_symbols_block(w, lib_text, {p.symbol for p in parts})
-    placed = layout_sheet(parts, geos)
+    placed, boxes = layout_sheet(parts, geos, sheet)
+    for title, x0, y0, x1, y1 in boxes:
+        _box(w, title, x0, y0, x1, y1)
     for part, unit, x, y in placed:
         labels = _place_symbol(w, project, root_uuid, sheet_uuid, part, unit, geos[part.symbol], x, y)
         for p in part.pins:

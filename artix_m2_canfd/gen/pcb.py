@@ -227,9 +227,9 @@ ZONES = {
     "decap_avtt": (4.0, 7.3, 8.0, 16.0, "B"),
     # small parts on the otherwise empty back: LEDs, feedback and termination
     # resistors (below y 48 so they clear the Tag-Connect alignment holes)
-    "leds":       (-8.0, 8.0, 48.5, 52.0, "B"),
-    "power_b":    (-8.0, 8.0, 52.5, 62.5, "B"),
-    "can_b":      (-8.0, 8.0, 62.5, 75.3, "B"),
+    "leds":       (-8.0, 8.0, 48.5, 55.5, "B"),
+    "power_b":    (-8.0, 8.0, 56.0, 62.5, "B"),
+    "can_b":      (-8.0, 8.0, 62.5, 76.5, "B"),      # the headers above it are top-side only
 }
 GAP = 0.3
 GAP_BACK = 0.5   # room for a fan-out via between neighbouring parts on the back
@@ -241,31 +241,80 @@ def courtyard(fp_text):
     x0, y0, x1, y1 = map(float, m.groups())
     return (abs(x1 - x0), abs(y1 - y0))
 
+def _block(parts, fp_texts, max_w, gap):
+    """Lay out one owner's parts as a block: the ICs side by side on the first row,
+    the passives to their right and then in rows below, never wider than max_w.
+    Returns ([(part, dx, dy)], bw, bh) with dx, dy the courtyard centres."""
+    size = lambda p: courtyard(fp_texts[p.footprint.split(':')[1]])
+    heads = sorted([p for p in parts if not p.footprint.split(':')[1].startswith(("C_", "R_", "L_", "FB_", "LED_"))],
+                   key=lambda p: (-size(p)[1], -size(p)[0], p.ref))
+    passives = sorted([p for p in parts if p not in heads], key=lambda p: (-size(p)[1], -size(p)[0], p.ref))
+    out = []
+    x = 0.0; y = 0.0; head_h = 0.0
+    for p in heads:                      # ICs side by side, wrapping if the block would get too wide
+        w, h = size(p)
+        if x > 0 and x + w > max_w + 1e-6:
+            x = 0.0; y += head_h + gap; head_h = 0.0
+        out.append((p, x + w / 2, y + h / 2)); x += w + gap; head_h = max(head_h, h)
+    head_h += y
+    px0 = x if heads else 0.0            # passives start beside the ICs ...
+    px, py, row_h = px0, 0.0, 0.0
+    for p in passives:
+        w, h = size(p)
+        if px + w > max_w + 1e-6:
+            py += row_h + gap; row_h = 0.0
+            px = px0 if py < head_h + gap - 1e-6 else 0.0      # ... and below them once clear of their courtyards
+        out.append((p, px + w / 2, py + h / 2))
+        px += w + gap; row_h = max(row_h, h)
+    bw = max([dx + size(p)[0] / 2 for p, dx, dy in out], default=0.0)
+    bh = max([dy + size(p)[1] / 2 for p, dx, dy in out], default=0.0)
+    return out, bw, bh
+
 def pack(design, fp_texts):
-    """Shelf-pack every non-fixed part into its zone. Sets part.place."""
+    """Place every non-fixed part in its zone, block by block: each IC together with the
+    passives it owns (Part.owner), blocks shelf-packed down the zone. Sets part.place."""
     groups = {}
     for part in design.parts:
         if part.zone == "fixed":
             continue
-        groups.setdefault(part.zone, []).append(part)
+        groups.setdefault(part.zone, {}).setdefault(part.owner, []).append(part)
     overflow = []
-    for zone, parts in groups.items():
+    for zone, owners in groups.items():
         if zone not in ZONES:
             raise KeyError(f"no zone rectangle for {zone}")
         x0, x1, y0, y1, side = ZONES[zone]
         gap = GAP_BACK if side == "B" else GAP
-        parts.sort(key=lambda p: (-courtyard(fp_texts[p.footprint.split(':')[1]])[1], -courtyard(fp_texts[p.footprint.split(':')[1]])[0], p.ref))
         x = x0; y = y0; row_h = 0
-        for p in parts:
-            w, h = courtyard(fp_texts[p.footprint.split(':')[1]])
-            if x + w > x1 + 1e-6:
+        for owner, parts in owners.items():
+            max_w = (x1 - x0) / 2 - gap / 2 if x1 - x0 >= 12 else x1 - x0       # two blocks per row in the wide zones
+            items, bw, bh = _block(parts, fp_texts, max_w, gap)
+            if x + bw > x1 + 1e-6:
                 x = x0; y += row_h + gap; row_h = 0
-            if y + h > y1 + 1e-6:
-                overflow.append((zone, p.ref))
-            p.place = (x + w / 2, y + h / 2, 0.0, side)
-            x += w + gap
-            row_h = max(row_h, h)
+            for p, dx, dy in items:
+                w, h = courtyard(fp_texts[p.footprint.split(':')[1]])
+                if y + dy + h / 2 > y1 + 1e-6:
+                    overflow.append((zone, p.ref))
+                p.place = (x + dx, y + dy, 0.0, side)
+            x += bw + gap
+            row_h = max(row_h, bh)
     return overflow
+
+def _groups(w, design):
+    """KiCad groups: every owner with more than one part, named after the owner."""
+    members = {}
+    for p in design.parts:
+        members.setdefault(p.owner, []).append(p)
+    for owner, parts in members.items():
+        if len(parts) < 2:
+            continue
+        head = next((p for p in parts if p.ref == owner), None)
+        name = f"{owner} {head.value}" if head else owner
+        w.open(f"group {q(name)}")
+        w.line(f"(uuid {q(uid('group', owner))})")
+        w.open("members")
+        for p in parts:
+            w.line(q(uid('fp', p.ref)))
+        w.close(); w.close()
 
 # (net, layer, priority, x0, x1, y0, y1) in design coordinates
 PLANES = [
@@ -384,6 +433,7 @@ def write_pcb(path, design, libdir, libname):
         _embed_footprint(w, cache[fpname], libname, part, nets, kx, ky, rot, side)
     # power and ground planes (design coords, converted like the parts)
     _zones(w, nets)
+    _groups(w, design)
     _edge_keepout(w)
     # outline, translated by the same offsets
     w2 = W(); w2.depth = w.depth

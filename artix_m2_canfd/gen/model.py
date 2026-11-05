@@ -23,6 +23,11 @@ class Part:
     place: tuple = (0.0, 0.0, 0.0, "F")   # pcb x, y (mm, board coords), rotation, side
     dnp: bool = False
     zone: str = ""
+    owner: str = ""                 # reference of the part this one belongs with (its IC), for grouping
+    unit_sheets: dict = field(default_factory=dict)   # unit -> sheet, for units drawn away from the part's sheet
+
+    def sheet_of(self, unit):
+        return self.unit_sheets.get(unit, self.sheet)
 
     def pin(self, number):
         for p in self.pins:
@@ -42,10 +47,13 @@ class Design:
     parts: list[Part] = field(default_factory=list)
     sheets: list[str] = field(default_factory=list)   # ordered sheet names
     sheet_titles: dict = field(default_factory=dict)
+    owner: str = ""                 # parts added without an explicit owner belong to the last IC declared
 
     def add(self, part):
         if any(p.ref == part.ref for p in self.parts):
             raise ValueError(f"duplicate reference {part.ref}")
+        if not part.owner:
+            part.owner = self.owner or part.ref
         self.parts.append(part)
         if part.sheet not in self.sheets:
             self.sheets.append(part.sheet)
