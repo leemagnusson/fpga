@@ -90,9 +90,10 @@ locked, which the DSN export turns into fixed wires that the autorouter
 leaves alone.
 
 Planes (6 layers, 0.8 mm): L2 and L5 ground; L3 3.3 V everywhere; L4 1.8 V
-with a 1.0 V strip from the core balls up to the buck, the 3.3 V input
-under the fingers and along the right edge to the regulators, 5 V at the
-CAN end, and the two transceiver rails at the GTP corner, each extended
+with a 1.0 V strip from the core balls up to the buck's output capacitors,
+the 3.3 V input under the fingers, along the right edge and in patches
+under the regulator inputs, 5 V at the CAN end reaching down to the boost,
+and the two transceiver rails at the GTP corner, each extended
 below the package under its decoupling zone and joined to the corner
 island by a locked 0.1 mm B.Cu link threaded through the escape via row
 (`pcb.LINKS`). Plane fills use 0.1 mm clearance and width so the islands
@@ -162,11 +163,17 @@ pretty.
 Generated, electrical rule check clean, design rule check clean apart from
 the unrouted connections (KiCad 9.0.8). KiCad's own netlist export of the
 schematic matches the Python design net for net. Not built or tested.
-On the board the same ownership drives placement and grouping: within a
-zone every IC is packed as a block with its own passives beside and below
-it, and each owner becomes a KiCad group (select one part, press Ctrl-G to
-pick the group) so the transceiver with its bypass capacitors, ESD diode and
-terminations, or a regulator with its inductor and capacitors, moves as one.
+On the board the same ownership drives placement and grouping. The
+regulators, the flash, the oscillator and the CAN transceivers carry a
+reference layout: each of their passives has a position relative to the IC
+(`rel=(dx, dy, rotation, side)` in `gen/design.py`, taken from the vendors'
+layout examples: input capacitor across VIN and GND, inductor at SW, output
+capacitor at the inductor's far end, feedback dividers on the back directly
+under the IC, bypass capacitors across the supply pins, ESD diodes and
+terminations under the transceivers, LEDs on the back under the headers).
+Any other passive flows in rows below its IC. Each owner is also a KiCad
+group (select one part and press Ctrl-G, or Tab to enter the group) so a
+regulator with its inductor and capacitors moves as one.
 Parts are auto-placed into zones (the PCIe coupling capacitors are fixed
 in line with their fingers, pads along the trace, P and N set 0.4 mm
 outward so both jog the same amount, with the PCIe-zone resistors beside them;

@@ -222,12 +222,10 @@ ZONES = {
     # transceiver rails below the GTP corner on their island extensions.
     "decap_3v3":  (-8.0, -2.9, 31.9, 44.0, "B"),
     "decap_1v0":  (-2.3, 2.3, 31.9, 44.0, "B"),   # inside the 1.0 V strip with room for the vias
-    "decap_1v8":  (2.9, 8.0, 31.9, 44.0, "B"),
+    "decap_1v8":  (3.4, 8.0, 31.9, 44.0, "B"),      # clear of the 1.0 V strip edge so the vias land on 1.8 V copper
     "decap_avcc": (0.5, 4.0, 8.0, 16.0, "B"),
     "decap_avtt": (4.0, 7.3, 8.0, 16.0, "B"),
-    # small parts on the otherwise empty back: LEDs, feedback and termination
-    # resistors (below y 48 so they clear the Tag-Connect alignment holes)
-    "leds":       (-8.0, 8.0, 48.5, 55.5, "B"),
+    # back-side zones for parts that are not placed relative to an IC
     "power_b":    (-8.0, 8.0, 56.0, 62.5, "B"),
     "can_b":      (-8.0, 8.0, 62.5, 76.5, "B"),      # the headers above it are top-side only
 }
@@ -241,43 +239,70 @@ def courtyard(fp_text):
     x0, y0, x1, y1 = map(float, m.groups())
     return (abs(x1 - x0), abs(y1 - y0))
 
-def _block(parts, fp_texts, max_w, gap):
-    """Lay out one owner's parts as a block: the ICs side by side on the first row,
-    the passives to their right and then in rows below, never wider than max_w.
-    Returns ([(part, dx, dy)], bw, bh) with dx, dy the courtyard centres."""
+def _rot(x, y, deg):
+    c, s_ = math.cos(math.radians(deg)), math.sin(math.radians(deg))
+    return x * c - y * s_, x * s_ + y * c
+
+def _extent(w, h, rot):
+    return (h, w) if rot % 180 == 90 else (w, h)
+
+def _block(parts, fp_texts, max_w, gap, owner):
+    """Lay out one owner's parts as a block. Parts with a relative placement (Part.rel,
+    the reference layout) sit at their offset from the owner; the other ICs go side by
+    side on the first row and the other passives flow below, never wider than max_w.
+    Returns ([(part, dx, dy, rot, side)], bw, bh); dx, dy are courtyard centres, y down."""
     size = lambda p: courtyard(fp_texts[p.footprint.split(':')[1]])
-    heads = sorted([p for p in parts if not p.footprint.split(':')[1].startswith(("C_", "R_", "L_", "FB_", "LED_"))],
+    head = next((p for p in parts if p.ref == owner), None)
+    fixed = [p for p in parts if p.rel is not None and head is not None]
+    heads = sorted([p for p in parts if p not in fixed and p is not head
+                    and not p.footprint.split(':')[1].startswith(("C_", "R_", "L_", "FB_", "LED_"))],
                    key=lambda p: (-size(p)[1], -size(p)[0], p.ref))
-    passives = sorted([p for p in parts if p not in heads], key=lambda p: (-size(p)[1], -size(p)[0], p.ref))
+    if head is not None:
+        heads.insert(0, head)
+    passives = sorted([p for p in parts if p not in heads and p not in fixed], key=lambda p: (-size(p)[1], -size(p)[0], p.ref))
     out = []
     x = 0.0; y = 0.0; head_h = 0.0
     for p in heads:                      # ICs side by side, wrapping if the block would get too wide
         w, h = size(p)
         if x > 0 and x + w > max_w + 1e-6:
             x = 0.0; y += head_h + gap; head_h = 0.0
-        out.append((p, x + w / 2, y + h / 2)); x += w + gap; head_h = max(head_h, h)
+        out.append((p, x + w / 2, y + h / 2, 0.0, p.place[3])); x += w + gap; head_h = max(head_h, h)
     head_h += y
-    px0 = x if heads else 0.0            # passives start beside the ICs ...
-    px, py, row_h = px0, 0.0, 0.0
+    if fixed:                            # reference layout around the owner (design y up -> block y down)
+        hx, hy = out[0][1], out[0][2]
+        for p in fixed:
+            dx, dy, rot, side = p.rel
+            out.append((p, hx + dx, hy - dy, rot, side))
+        minx = min(cx - _extent(*size(p), rot)[0] / 2 for p, cx, cy, rot, side in out)
+        miny = min(cy - _extent(*size(p), rot)[1] / 2 for p, cx, cy, rot, side in out)
+        out = [(p, cx - minx, cy - miny, rot, side) for p, cx, cy, rot, side in out]
+        x = max(cx + _extent(*size(p), rot)[0] / 2 for p, cx, cy, rot, side in out)
+        head_h = max(cy + _extent(*size(p), rot)[1] / 2 for p, cx, cy, rot, side in out)
+    px0 = x if heads and not fixed else 0.0      # passives start beside the ICs ...
+    px, py, row_h = px0, (head_h + gap if fixed else 0.0), 0.0   # ... or below a reference layout
     for p in passives:
         w, h = size(p)
         if px + w > max_w + 1e-6:
             py += row_h + gap; row_h = 0.0
             px = px0 if py < head_h + gap - 1e-6 else 0.0      # ... and below them once clear of their courtyards
-        out.append((p, px + w / 2, py + h / 2))
+        out.append((p, px + w / 2, py + h / 2, 0.0, p.place[3]))
         px += w + gap; row_h = max(row_h, h)
-    bw = max([dx + size(p)[0] / 2 for p, dx, dy in out], default=0.0)
-    bh = max([dy + size(p)[1] / 2 for p, dx, dy in out], default=0.0)
+    bw = max([cx + _extent(*size(p), rot)[0] / 2 for p, cx, cy, rot, side in out], default=0.0)
+    bh = max([cy + _extent(*size(p), rot)[1] / 2 for p, cx, cy, rot, side in out], default=0.0)
     return out, bw, bh
 
 def pack(design, fp_texts):
     """Place every non-fixed part in its zone, block by block: each IC together with the
     passives it owns (Part.owner), blocks shelf-packed down the zone. Sets part.place."""
     groups = {}
+    byref = {p.ref: p for p in design.parts}
     for part in design.parts:
-        if part.zone == "fixed":
+        zone = part.zone
+        if part.rel is not None and part.owner in byref:
+            zone = byref[part.owner].zone                     # a reference layout stays with its IC
+        if zone == "fixed":
             continue
-        groups.setdefault(part.zone, {}).setdefault(part.owner, []).append(part)
+        groups.setdefault(zone, {}).setdefault(part.owner, []).append(part)
     overflow = []
     for zone, owners in groups.items():
         if zone not in ZONES:
@@ -287,16 +312,23 @@ def pack(design, fp_texts):
         x = x0; y = y0; row_h = 0
         for owner, parts in owners.items():
             max_w = (x1 - x0) / 2 - gap / 2 if x1 - x0 >= 12 else x1 - x0       # two blocks per row in the wide zones
-            items, bw, bh = _block(parts, fp_texts, max_w, gap)
+            items, bw, bh = _block(parts, fp_texts, max_w, gap, owner)
             if x + bw > x1 + 1e-6:
                 x = x0; y += row_h + gap; row_h = 0
-            for p, dx, dy in items:
-                w, h = courtyard(fp_texts[p.footprint.split(':')[1]])
+            for p, dx, dy, rot, pside in items:
+                w, h = _extent(*courtyard(fp_texts[p.footprint.split(':')[1]]), rot)
                 if y + dy + h / 2 > y1 + 1e-6:
                     overflow.append((zone, p.ref))
-                p.place = (x + dx, y + dy, 0.0, side)
+                p.place = (x + dx, y + dy, rot, pside if p.rel is not None else side)
             x += bw + gap
             row_h = max(row_h, bh)
+    # parts placed relative to a fixed owner (headers, connector)
+    byref = {p.ref: p for p in design.parts}
+    for p in design.parts:
+        if p.rel is not None and p.owner in byref and byref[p.owner].zone == "fixed":
+            o = byref[p.owner]
+            dx, dy = _rot(p.rel[0], p.rel[1], o.place[2])
+            p.place = (o.place[0] + dx, o.place[1] + dy, (p.rel[2] + o.place[2]) % 360, p.rel[3])
     return overflow
 
 def _groups(w, design):
@@ -322,11 +354,18 @@ PLANES = [
     ("GND",       "In4.Cu", 0, -11, 11,  0, 80),
     ("VCC3V3",    "In2.Cu", 0, -11, 11,  2.5, 80),       # VCCO balls are all around the package
     ("VCC1V8",    "In3.Cu", 0, -11, 11, 10, 62.3),
-    ("VCC1V0",    "In3.Cu", 1, -2.6, 2.6, 20.6, 62),     # VCCINT/VCCBRAM core balls, strip up to the buck
+    ("VCC1V0",    "In3.Cu", 1, -2.6, 2.6, 20.6, 46.5),   # VCCINT/VCCBRAM core balls, strip up to the buck ...
+    ("VCC1V0",    "In3.Cu", 2, -3.2, 0.2, 46.0, 51.5),   # ... ending under its output capacitors, so the 1.8 V plane
+                                                         #     is whole under the LDOs, switch and boost further up
     ("VIN_3V3",   "In3.Cu", 1, -11, 11,  0, 9.5),        # under the connector fingers
     ("VIN_3V3",   "In3.Cu", 2,  7.6, 11,  9.0, 62),      # ... and a strip up to the regulators (overlaps the above so they join;
                                                          #     different priority so DRC does not flag the overlap)
+    ("VIN_3V3",   "In3.Cu", 3, -11, -3.0, 46.4, 50.2),   # 3.3 V input under the 1.0 V buck and its input capacitor
+    ("VIN_3V3",   "In3.Cu", 3,  3.0, 11,  46.4, 50.5),   # ... under the 1.8 V buck's input
+    ("VIN_3V3",   "In3.Cu", 3,  4.5, 11,  56.0, 62.3),   # ... under the boost's input capacitor and inductor
+    ("VIN_3V3",   "In3.Cu", 3, -11, -2.5, 57.0, 62.3),   # ... under the load switch input
     ("VCC5V_CAN", "In3.Cu", 1, -11, 11, 62.3, 80),
+    ("VCC5V_CAN", "In3.Cu", 3,  0.5, 4.0, 56.0, 62.5),   # down to the boost output and its capacitor
     # Islands below the package for the transceiver-rail decoupling (zones
     # decap_avcc/avtt). They stop at y 16.1 so the BGA escape cells one pitch
     # outside the package (y 16.4) stay free; the router joins each island to

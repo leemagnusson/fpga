@@ -42,12 +42,15 @@ def _next(prefix):
     _counters[prefix] = _counters.get(prefix, 0) + 1
     return f"{prefix}{_counters[prefix]}"
 
-def two_pin(d, prefix, symbol, value, footprint, net1, net2, sheet, mpn="", desc="", place=None, zone=None, side="F", owner=None):
+def two_pin(d, prefix, symbol, value, footprint, net1, net2, sheet, mpn="", desc="", place=None, zone=None, side="F", owner=None, rel=None):
+    """rel = (dx, dy, rot, side): put the part there relative to its owner (mm, degrees CCW,
+    y up) instead of flowing it below the owner; the owner's own rotation is applied."""
     ref = _next(prefix)
     pins = [Pin("1", "1", net1, side="L"), Pin("2", "2", net2, side="R")]
     part = Part(ref, value, symbol, footprint, pins, mpn=mpn, description=desc, sheet=sheet, place=place or (0, 0, 0, side))
     part.zone = zone or sheet
     part.owner = owner or ""          # empty: the last IC declared (Design.add)
+    part.rel = rel
     return d.add(part)
 
 # Manufacturer part numbers for the generic passives (assembly quotes need one per line):
@@ -58,26 +61,27 @@ DEFAULT_MPN = {
     ("R", "0402", "200k"): "RC0402FR-07200KL", ("R", "0402", "732k"): "RC0402FR-07732KL",
     ("C", "0402", "100n"): "GRM155R71C104KA88D", ("C", "0402", "1u"): "GRM155R61A105KE15D", ("C", "0402", "1n"): "GRM1555C1H102JA01D",
 }
-def R(d, value, a, b, sheet, mpn="", place=None, size="0402", zone=None, side="F", owner=None):
+def R(d, value, a, b, sheet, mpn="", place=None, size="0402", zone=None, side="F", owner=None, rel=None):
     mpn = mpn or DEFAULT_MPN.get(("R", size, value), "")
-    return two_pin(d, "R", "R", value, fp(f"R_{size}"), a, b, sheet, mpn, f"Resistor {value} {size}", place, zone, side, owner)
-def C(d, value, a, b, sheet, mpn="", place=None, size="0402", voltage="", zone=None, side="F", owner=None):
+    return two_pin(d, "R", "R", value, fp(f"R_{size}"), a, b, sheet, mpn, f"Resistor {value} {size}", place, zone, side, owner, rel)
+def C(d, value, a, b, sheet, mpn="", place=None, size="0402", voltage="", zone=None, side="F", owner=None, rel=None):
     mpn = mpn or DEFAULT_MPN.get(("C", size, value), "")
-    return two_pin(d, "C", "C", value, fp(f"C_{size}"), a, b, sheet, mpn, f"Capacitor {value} {voltage} {size}".strip(), place, zone, side, owner)
-def L(d, value, a, b, sheet, mpn="", place=None, zone=None, side="F", owner=None):
-    return two_pin(d, "L", "L", value, fp("L_0806"), a, b, sheet, mpn, f"Inductor {value} 2016", place, zone, side, owner)
-def FB(d, value, a, b, sheet, mpn="", place=None, zone=None, side="F", owner=None):
-    return two_pin(d, "FB", "FB", value, fp("FB_0402"), a, b, sheet, mpn, "Ferrite bead 0402", place, zone, side, owner)
-def LED(d, color, cathode, anode, sheet, mpn="", place=None, zone=None, side="F", owner=None):
-    return two_pin(d, "D", "LED", f"LED {color}", fp("LED_0402"), cathode, anode, sheet, mpn, f"LED {color} 0402", place, zone, side, owner)
+    return two_pin(d, "C", "C", value, fp(f"C_{size}"), a, b, sheet, mpn, f"Capacitor {value} {voltage} {size}".strip(), place, zone, side, owner, rel)
+def L(d, value, a, b, sheet, mpn="", place=None, zone=None, side="F", owner=None, rel=None):
+    return two_pin(d, "L", "L", value, fp("L_0806"), a, b, sheet, mpn, f"Inductor {value} 2016", place, zone, side, owner, rel)
+def FB(d, value, a, b, sheet, mpn="", place=None, zone=None, side="F", owner=None, rel=None):
+    return two_pin(d, "FB", "FB", value, fp("FB_0402"), a, b, sheet, mpn, "Ferrite bead 0402", place, zone, side, owner, rel)
+def LED(d, color, cathode, anode, sheet, mpn="", place=None, zone=None, side="F", owner=None, rel=None):
+    return two_pin(d, "D", "LED", f"LED {color}", fp("LED_0402"), cathode, anode, sheet, mpn, f"LED {color} 0402", place, zone, side, owner, rel)
 
-def ic(d, ref, value, symbol, footprint, pinmap, sheet, mpn="", desc="", place=None, zone=None, side="F", owner=None):
+def ic(d, ref, value, symbol, footprint, pinmap, sheet, mpn="", desc="", place=None, zone=None, side="F", owner=None, rel=None):
     """pinmap: list of (number, name, net, side). The IC owns the passives declared after it
     (until the next IC); `owner` makes it a member of another IC's group instead."""
     pins = [Pin(str(n), name, net, side=side) for n, name, net, side in pinmap]
     part = Part(ref, value, symbol, footprint, pins, mpn=mpn, description=desc, sheet=sheet, place=place or (0, 0, 0, side))
     part.zone = zone or sheet
     part.owner = owner or ref
+    part.rel = rel
     d.owner = part.owner
     return d.add(part)
 
@@ -236,8 +240,8 @@ def build(pkg_path):
        [(1, "/CS", "QSPI_CS_N", "L"), (2, "DO/IO1", "QSPI_IO1", "L"), (3, "/WP/IO2", "QSPI_IO2", "L"), (4, "GND", GND, "L"),
         (5, "DI/IO0", "QSPI_IO0", "R"), (6, "CLK", "QSPI_CLK", "R"), (7, "/HOLD/IO3", "QSPI_IO3", "R"), (8, "VCC", V3, "R"), (9, "PAD", GND, "R")],
        "fpga_io", "W25Q128JVPIQ", "128 Mbit QSPI configuration flash, WSON-8")
-    C(d, "100n", V3, GND, "fpga_io")
-    R(d, "4k7", "QSPI_CS_N", V3, "fpga_io")
+    C(d, "100n", V3, GND, "fpga_io", rel=(4.7, 0.9, 270, "F"))                 # at VCC (pin 8), GND end via to the plane
+    R(d, "4k7", "QSPI_CS_N", V3, "fpga_io")        # pull-ups flow below the flash (the back there is FPGA decoupling)
     R(d, "4k7", "CFG_M0", V3, "fpga_io")           # M[2:0] = 001: master SPI
     R(d, "4k7", "PUDC_B", V3, "fpga_io")         # internal pull-ups off during config
     R(d, "4k7", "DONE", V3, "fpga_io")
@@ -252,10 +256,11 @@ def build(pkg_path):
     ic(d, "X1", "100 MHz 3.3V", "OSC_2520", fp("Oscillator_2520_4pin"),
        [(1, "EN/NC", None, "L"), (2, "GND", GND, "L"), (3, "OUT", "CLK100M", "R"), (4, "VDD", V3, "R")],
        "fpga_io", "ECS-2520MV-100-CN-TR", "100 MHz CMOS oscillator, 2.5x2.0 mm, 3.3 V")
-    C(d, "100n", V3, GND, "fpga_io")
-    for i in range(4):   # on the back, where there is room (a card in a slot hides both sides anyway)
-        LED(d, "green", f"LED{i}_N", f"LED{i}_A", "fpga_io", "19-217/GHC-YR1S2/3T", zone="leds", side="B", owner="LEDs")
-        R(d, "1k", f"LED{i}_A", V3, "fpga_io", zone="leds", side="B", owner="LEDs")
+    C(d, "100n", V3, GND, "fpga_io", rel=(-3.0, 0.2, 270, "F"))                # beside VDD (pin 4)
+    for i in range(4):   # on the back under the CAN headers at the far end, two per header (the only free spot)
+        hdr, row = ("J3", "J4")[i // 2], (0.9, -0.9)[i % 2]
+        LED(d, "green", f"LED{i}_N", f"LED{i}_A", "fpga_io", "19-217/GHC-YR1S2/3T", owner=hdr, rel=(-1.6, row, 0, "B"))
+        R(d, "1k", f"LED{i}_A", V3, "fpga_io", owner=hdr, rel=(1.6, row, 0, "B"))
 
     # ---- FPGA decoupling (per UG483 guidance, scaled for the 50T) ---------------------
     # One placement zone per rail (see pcb.ZONES) so each capacitor sits over
@@ -265,7 +270,6 @@ def build(pkg_path):
             for k in range(n):
                 C(d, value, net, GND, sheet, mpn, size=size, zone=zone, side="B", owner=f"U1 {net}")
     decouple(V1,   "decap_1v0",  [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("470n", "0402", 4, "GRM155R61A474KE15D")])
-    C(d, "47u", V1, GND, "fpga_pwr", "GRM21BR60J476ME15L", size="0805", zone="power_b", side="B", owner="U1 VCC1V0")   # bulk, near the buck (the 1.0 V strip is too narrow for it beside the BGA)
     decouple(V18,  "decap_1v8",  [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 1, "GRM155R60J475ME47D"), ("470n", "0402", 2, "GRM155R61A474KE15D")])
     decouple(V3,   "decap_3v3",  [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 4, "GRM155R60J475ME47D"), ("470n", "0402", 4, "GRM155R61A474KE15D")])
     decouple(AVCC, "decap_avcc", [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("100n", "0402", 3, "GRM155R71C104KA88D")])
@@ -279,51 +283,52 @@ def build(pkg_path):
        [(1, "EN", V3IN, "L"), (2, "FB", "FB_1V0", "L"), (3, "AGND", GND, "L"), (4, "NC", None, "L"),
         (5, "PGND", GND, "R"), (6, "SW", "SW_1V0", "R"), (7, "VIN", V3IN, "R"), (8, "PG", "PG_1V0", "R")],
        "power", "TPS62823DLCR", "3 A synchronous buck, 1.0 V VCCINT/VCCBRAM")
-    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V")
-    L(d, "470nH", "SW_1V0", V1, "power", "TFM201610ALMA-R47MTAA")
-    C(d, "22u", V1, GND, "power", "GRM188R60J226MEA0D", size="0603", voltage="6.3V")
-    R(d, "68k", V1, "FB_1V0", "power")
-    R(d, "100k", "FB_1V0", GND, "power")
-    R(d, "100k", "PG_1V0", V3IN, "power")
+    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(2.3, 0.0, 270, "F"))   # VIN (top) to PGND (bottom)
+    L(d, "470nH", "SW_1V0", V1, "power", "TFM201610ALMA-R47MTAA", rel=(5.0, -0.3, 0, "F"))                         # SW end towards the IC
+    C(d, "22u", V1, GND, "power", "GRM188R60J226MEA0D", size="0603", voltage="6.3V", rel=(5.0, -2.3, 180, "F"))   # under L, output end under L's output
+    C(d, "47u", V1, GND, "power", "GRM21BR60J476ME15L", size="0805", voltage="6.3V", rel=(5.0, -1.5, 0, "B"))     # bulk, on the back under L and Cout
+    R(d, "68k", V1, "FB_1V0", "power", rel=(0.0, 0.7, 0, "B"))                                                       # divider on the back under the IC
+    R(d, "100k", "FB_1V0", GND, "power", rel=(0.0, -0.7, 0, "B"))
+    R(d, "100k", "PG_1V0", V3IN, "power", rel=(2.3, 0.0, 90, "B"))
     # VCCAUX 1.8 V: TLV62569, enabled by the 1.0 V power-good. FB 0.6 V: R1/R2 = 2 -> 200k / 100k
     ic(d, "U4", "TLV62569DBVR", "TLV62569", fp("SOT-23-5"),
        [(1, "EN", "PG_1V0", "L"), (2, "GND", GND, "L"), (3, "SW", "SW_1V8", "L"), (4, "VIN", V3IN, "R"), (5, "FB", "FB_1V8", "R")],
        "power", "TLV62569DBVR", "2 A synchronous buck, 1.8 V VCCAUX")
-    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V")
-    L(d, "1uH", "SW_1V8", V18, "power", "TFM201610ALMA-1R0MTAA")
-    C(d, "22u", V18, GND, "power", "GRM188R60J226MEA0D", size="0603", voltage="6.3V")
-    R(d, "200k", V18, "FB_1V8", "power")
-    R(d, "100k", "FB_1V8", GND, "power")
+    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(2.9, -0.8, 270, "F"))   # at VIN (pin 4)
+    L(d, "1uH", "SW_1V8", V18, "power", "TFM201610ALMA-1R0MTAA", rel=(-0.5, -3.1, 0, "F"))                         # SW end under pin 3
+    C(d, "22u", V18, GND, "power", "GRM188R60J226MEA0D", size="0603", voltage="6.3V", rel=(3.1, -3.4, 0, "F"))     # beside L's output end
+    R(d, "200k", V18, "FB_1V8", "power", rel=(0.0, 0.7, 0, "B"))
+    R(d, "100k", "FB_1V8", GND, "power", rel=(0.0, -0.7, 0, "B"))
     # MGT rails from 1.8 V: 1.0 V and 1.2 V fixed LDOs
     ic(d, "U5", "TLV75510PDBVR", "TLV755P", fp("SOT-23-5"),
        [(1, "IN", V18, "L"), (2, "GND", GND, "L"), (3, "EN", V18, "L"), (4, "NC", None, "R"), (5, "OUT", AVCC, "R")],
        "power", "TLV75510PDBVR", "500 mA LDO, 1.0 V MGTAVCC")
-    C(d, "1u", V18, GND, "power", voltage="10V")
-    C(d, "1u", AVCC, GND, "power", voltage="10V")
+    C(d, "1u", V18, GND, "power", voltage="10V", rel=(-3.0, 0.5, 270, "F"))
+    C(d, "1u", AVCC, GND, "power", voltage="10V", rel=(3.0, 0.5, 270, "F"))
     ic(d, "U6", "TLV75512PDBVR", "TLV755P", fp("SOT-23-5"),
        [(1, "IN", V18, "L"), (2, "GND", GND, "L"), (3, "EN", V18, "L"), (4, "NC", None, "R"), (5, "OUT", AVTT, "R")],
        "power", "TLV75512PDBVR", "500 mA LDO, 1.2 V MGTAVTT")
-    C(d, "1u", V18, GND, "power", voltage="10V")
-    C(d, "1u", AVTT, GND, "power", voltage="10V")
+    C(d, "1u", V18, GND, "power", voltage="10V", rel=(-3.0, 0.5, 270, "F"))
+    C(d, "1u", AVTT, GND, "power", voltage="10V", rel=(3.0, 0.5, 270, "F"))
     # VCCO 3.3 V: load switch enabled once 1.8 V is up (RC delay), slew limited
     ic(d, "U7", "TPS22918DBVR", "TPS22918", fp("SOT-23-6"),
        [(1, "VIN", V3IN, "L"), (2, "GND", GND, "L"), (3, "ON", "EN_3V3", "L"), (4, "CT", "CT_3V3", "R"), (5, "QOD", V3, "R"), (6, "VOUT", V3, "R")],
        "power", "TPS22918DBVR", "2 A load switch, sequenced 3.3 V for VCCO/flash/CAN logic")
-    R(d, "100k", V18, "EN_3V3", "power")
-    C(d, "100n", "EN_3V3", GND, "power")          # ~10 ms delay after 1.8 V
-    C(d, "1n", "CT_3V3", GND, "power")           # slew ~ 1 ms
-    C(d, "10u", V3, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V")
-    LED(d, "green", "PWR_LED_K", V3, "power", "19-217/GHC-YR1S2/3T")
-    R(d, "1k", "PWR_LED_K", GND, "power")
+    R(d, "100k", V18, "EN_3V3", "power", rel=(-3.3, 0.7, 0, "F"))
+    C(d, "100n", "EN_3V3", GND, "power", rel=(-3.3, -1.0, 180, "F"))           # ~10 ms delay after 1.8 V; EN end at ON (pin 3)
+    C(d, "1n", "CT_3V3", GND, "power", rel=(3.0, -2.6, 270, "F"))              # slew ~ 1 ms; CT end at pin 4
+    C(d, "10u", V3, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(3.0, 0.4, 270, "F"))   # at VOUT (pin 6)
+    LED(d, "green", "PWR_LED_K", V3, "power", "19-217/GHC-YR1S2/3T", rel=(0.0, 0.7, 0, "B"))
+    R(d, "1k", "PWR_LED_K", GND, "power", rel=(0.0, -0.7, 0, "B"))
     # 5 V for the CAN transceivers: TPS61023 boost, FB 0.6 V: R1/R2 = (5-0.6)/0.6 = 7.33 -> 732k / 100k
     ic(d, "U8", "TPS61023DRLR", "TPS61023", fp("SOT-563"),
        [(1, "FB", "FB_5V", "L"), (2, "EN", V3, "L"), (3, "VIN", V3IN, "L"), (4, "GND", GND, "R"), (5, "SW", "SW_5V", "R"), (6, "VOUT", V5CAN, "R")],
        "power", "TPS61023DRLR", "Boost 3.3 V -> 5 V for the CAN transceivers (enabled with the 3.3 V rail)")
-    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V")
-    L(d, "1uH", V3IN, "SW_5V", "power", "TFM201610ALMA-1R0MTAA")
-    C(d, "10u", V5CAN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V")
-    R(d, "732k", V5CAN, "FB_5V", "power")
-    R(d, "100k", "FB_5V", GND, "power")
+    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(3.3, 2.2, 0, "F"))     # input cap above the inductor's input end
+    L(d, "1uH", V3IN, "SW_5V", "power", "TFM201610ALMA-1R0MTAA", rel=(3.2, 0.0, 180, "F"))                        # SW end at pin 5
+    C(d, "10u", V5CAN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(-0.3, 2.2, 0, "F"))    # at VOUT (pin 6)
+    R(d, "732k", V5CAN, "FB_5V", "power", rel=(0.0, 0.7, 0, "B"))
+    R(d, "100k", "FB_5V", GND, "power", rel=(0.0, -0.7, 0, "B"))
 
     # ---- CAN FD transceivers --------------------------------------------------------
     conn = []
@@ -333,14 +338,14 @@ def build(pkg_path):
            [(1, "TXD", f"CAN{i}_TXD", "L"), (2, "VSS", GND, "L"), (3, "VDD", V5CAN, "L"), (4, "RXD", f"CAN{i}_RXD", "L"),
             (5, "VIO", V3, "R"), (6, "CANL", f"CAN{i}_L", "R"), (7, "CANH", f"CAN{i}_H", "R"), (8, "STBY", f"CAN{i}_STBY", "R"), (9, "PAD", GND, "R")],
            "can", "MCP2562FDT-E/MF", f"CAN FD transceiver bus {i}, 8 Mbit/s, 5 V with 3.3 V I/O")
-        C(d, "100n", V5CAN, GND, "can", zone="can_b", side="B")     # on the back, under the transceiver
-        C(d, "100n", V3, GND, "can", zone="can_b", side="B")
+        C(d, "100n", V5CAN, GND, "can", rel=(-3.2, 0.0, 90, "F"))      # VDD (pin 3) bottom end, VSS (pin 2) top end
+        C(d, "100n", V3, GND, "can", rel=(0.8, -2.6, 180, "F"))        # VIO (pin 5): V3 end under the pin
         # bus protection and optional termination (solder jumper)
         ic(d, f"D{10 + i}", "PESD2CAN", "PESD2CAN", fp("SOT-23"),
            [(1, "I/O1", f"CAN{i}_H", "L"), (2, "I/O2", f"CAN{i}_L", "L"), (3, "GND", GND, "R")],
-           "can", "PESD2CANUX", "CAN bus ESD protection", owner=f"U{10 + i}", zone="can_b", side="B")   # back, with the terminations
-        R(d, "120R", f"CAN{i}_H", f"CAN{i}_TERM", "can", "RC0402FR-07120RL")
-        R(d, "0R", f"CAN{i}_TERM", f"CAN{i}_L", "can")
+           "can", "PESD2CANUX", "CAN bus ESD protection", owner=f"U{10 + i}", rel=(0.3, 0.6, 0, "B"))   # on the back under the chip
+        R(d, "120R", f"CAN{i}_H", f"CAN{i}_TERM", "can", "RC0402FR-07120RL", rel=(-1.3, -2.1, 0, "B"))
+        R(d, "0R", f"CAN{i}_TERM", f"CAN{i}_L", "can", rel=(1.3, -2.1, 0, "B"))
         d.parts[-1].dnp = True
         d.parts[-1].description += " (DNP: fit for bus-end termination)"
         conn += [(3 * i + 1, f"CAN{i}_H", f"CAN{i}_H"), (3 * i + 2, f"CAN{i}_L", f"CAN{i}_L"), (3 * i + 3, "GND", GND)]
@@ -362,7 +367,7 @@ def build(pkg_path):
     # empty beyond the decoupling; this keeps the front rows short enough to
     # leave routing corridors along both edges (see pcb.ZONES).
     for p in d.parts:
-        if p.zone in ("power", "can") and p.footprint == fp("R_0402"):
+        if p.zone in ("power", "can") and p.footprint == fp("R_0402") and p.rel is None:
             p.zone = p.zone + "_b"
             p.place = (0, 0, 0, "B")
     return d

@@ -25,6 +25,7 @@ class Part:
     zone: str = ""
     owner: str = ""                 # reference of the part this one belongs with (its IC), for grouping
     unit_sheets: dict = field(default_factory=dict)   # unit -> sheet, for units drawn away from the part's sheet
+    rel: tuple = None               # (dx, dy, rot, side) relative to the owner's position and rotation (reference layout)
 
     def sheet_of(self, unit):
         return self.unit_sheets.get(unit, self.sheet)

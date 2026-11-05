@@ -2040,67 +2040,13 @@
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 	)
-	(symbol (lib_id "artix_m2_canfd:C") (at 129.54 265.43 90) (unit 1)
+	(symbol (lib_id "artix_m2_canfd:C") (at 234.95 36.83 90) (unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(uuid "e1f223ad-c95d-56e0-92a8-1dc0c51ae409")
 		(property "Reference" "C19"
-			(at 129.54 262.255 90)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Value" "47u"
-			(at 129.54 268.605 90)
-			(effects (font (size 1.27 1.27)))
-		)
-		(property "Footprint" "artix_m2_canfd:C_0805"
-			(at 129.54 265.43 0)
-			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
-		)
-		(property "Datasheet" ""
-			(at 129.54 265.43 0)
-			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
-		)
-		(property "Description" "Capacitor 47u  0805"
-			(at 129.54 265.43 0)
-			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
-		)
-		(property "MPN" "GRM21BR60J476ME15L"
-			(at 129.54 265.43 0)
-			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
-		)
-		(pin "1" (uuid "cf5d35f0-b5e5-5536-a983-8637f57f1287"))
-		(pin "2" (uuid "46742a16-d72a-5b1d-92e8-57016afe6b83"))
-		(instances
-			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C19") (unit 1))
-			)
-		)
-	)
-	(global_label "VCC1V0" (shape bidirectional) (at 124.46 265.43 180) (fields_autoplaced yes)
-		(effects (font (size 1.27 1.27)) (justify right))
-		(uuid "d79920a7-5078-5e41-8864-705107715bed")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 124.46 265.43 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-	)
-	(global_label "GND" (shape bidirectional) (at 134.62 265.43 0) (fields_autoplaced yes)
-		(effects (font (size 1.27 1.27)) (justify left))
-		(uuid "2ad37505-317b-5159-8039-090a334f7937")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 134.62 265.43 0)
-			(effects (font (size 1.27 1.27)) (hide yes))
-		)
-	)
-	(symbol (lib_id "artix_m2_canfd:C") (at 234.95 36.83 90) (unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "2f5568bb-4e4c-54ef-9089-6c4211f71969")
-		(property "Reference" "C20"
 			(at 234.95 33.655 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2124,11 +2070,11 @@
 			(at 234.95 36.83 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "0a1e2109-31a7-5fb3-88f0-c9ccd287a7ad"))
-		(pin "2" (uuid "cc7d4957-b6f5-54f5-ad44-e7759fb828eb"))
+		(pin "1" (uuid "cf5d35f0-b5e5-5536-a983-8637f57f1287"))
+		(pin "2" (uuid "46742a16-d72a-5b1d-92e8-57016afe6b83"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C20") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C19") (unit 1))
 			)
 		)
 	)
@@ -2153,8 +2099,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "145bf061-535e-52f5-bd30-34e9cba814cb")
-		(property "Reference" "C21"
+		(uuid "2f5568bb-4e4c-54ef-9089-6c4211f71969")
+		(property "Reference" "C20"
 			(at 275.59 33.655 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2178,11 +2124,11 @@
 			(at 275.59 36.83 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "ad394d94-da23-50a3-b24b-0a9dcd4abf7d"))
-		(pin "2" (uuid "34445f0d-55ff-54a4-9226-282772c38a9d"))
+		(pin "1" (uuid "0a1e2109-31a7-5fb3-88f0-c9ccd287a7ad"))
+		(pin "2" (uuid "cc7d4957-b6f5-54f5-ad44-e7759fb828eb"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C21") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C20") (unit 1))
 			)
 		)
 	)
@@ -2207,8 +2153,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "60518303-d45f-51a3-9a26-099c7dbc7e31")
-		(property "Reference" "C22"
+		(uuid "145bf061-535e-52f5-bd30-34e9cba814cb")
+		(property "Reference" "C21"
 			(at 316.23 33.655 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2232,11 +2178,11 @@
 			(at 316.23 36.83 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "e86821f5-9ca1-560e-b8e7-0a0108afca2e"))
-		(pin "2" (uuid "30a1a40a-b113-548f-8160-56d1aa7fc910"))
+		(pin "1" (uuid "ad394d94-da23-50a3-b24b-0a9dcd4abf7d"))
+		(pin "2" (uuid "34445f0d-55ff-54a4-9226-282772c38a9d"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C22") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C21") (unit 1))
 			)
 		)
 	)
@@ -2261,8 +2207,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "dd9e7a66-0f58-5e43-aea0-44deb6a46d6e")
-		(property "Reference" "C23"
+		(uuid "60518303-d45f-51a3-9a26-099c7dbc7e31")
+		(property "Reference" "C22"
 			(at 356.87 33.655 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2286,11 +2232,11 @@
 			(at 356.87 36.83 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "6cb1aba6-4f57-561b-b0e6-3fe77b8ea81b"))
-		(pin "2" (uuid "16777295-8ad0-5a8c-b693-8f0d80353f79"))
+		(pin "1" (uuid "e86821f5-9ca1-560e-b8e7-0a0108afca2e"))
+		(pin "2" (uuid "30a1a40a-b113-548f-8160-56d1aa7fc910"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C23") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C22") (unit 1))
 			)
 		)
 	)
@@ -2369,8 +2315,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "50687030-a4da-5687-bab8-2e119858bb6b")
-		(property "Reference" "C43"
+		(uuid "314848e7-3717-5197-98a5-241715c5cd00")
+		(property "Reference" "C42"
 			(at 275.59 46.355 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2394,11 +2340,11 @@
 			(at 275.59 49.53 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "702eec6d-356b-50df-a068-dd926039c750"))
-		(pin "2" (uuid "469b0b58-1ab6-58c7-8a70-5211c5154318"))
+		(pin "1" (uuid "e471fa9d-4f6c-5ef1-93b0-9b54ccb41503"))
+		(pin "2" (uuid "31fac846-2f1d-52f8-9ccd-0ccf97e188fd"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C43") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C42") (unit 1))
 			)
 		)
 	)
@@ -2423,8 +2369,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "68c89906-4379-50a6-8d88-d3ffc73f2aa2")
-		(property "Reference" "C24"
+		(uuid "dd9e7a66-0f58-5e43-aea0-44deb6a46d6e")
+		(property "Reference" "C23"
 			(at 234.95 74.295 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2448,11 +2394,11 @@
 			(at 234.95 77.47 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "4cadb4a9-89f0-5441-afcb-98a1935fa644"))
-		(pin "2" (uuid "7870afba-b321-5109-afec-6742f6b7cebb"))
+		(pin "1" (uuid "6cb1aba6-4f57-561b-b0e6-3fe77b8ea81b"))
+		(pin "2" (uuid "16777295-8ad0-5a8c-b693-8f0d80353f79"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C24") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C23") (unit 1))
 			)
 		)
 	)
@@ -2477,8 +2423,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "760a2e01-d860-5fc7-a597-c63e93b8089a")
-		(property "Reference" "C25"
+		(uuid "68c89906-4379-50a6-8d88-d3ffc73f2aa2")
+		(property "Reference" "C24"
 			(at 275.59 74.295 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2502,11 +2448,11 @@
 			(at 275.59 77.47 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "818d553c-9182-58f9-9e73-9baa56685989"))
-		(pin "2" (uuid "f05b5c0b-ac00-5224-b6bb-f6966ef06dc6"))
+		(pin "1" (uuid "4cadb4a9-89f0-5441-afcb-98a1935fa644"))
+		(pin "2" (uuid "7870afba-b321-5109-afec-6742f6b7cebb"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C25") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C24") (unit 1))
 			)
 		)
 	)
@@ -2531,8 +2477,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "a3a38360-43a6-5178-b24f-ba6214cfcc76")
-		(property "Reference" "C26"
+		(uuid "760a2e01-d860-5fc7-a597-c63e93b8089a")
+		(property "Reference" "C25"
 			(at 316.23 74.295 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2556,11 +2502,11 @@
 			(at 316.23 77.47 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "f5d50f91-0013-535b-9136-ac70a64e6ae8"))
-		(pin "2" (uuid "fb29e2a6-7a53-5159-83c1-382b08ffcd26"))
+		(pin "1" (uuid "818d553c-9182-58f9-9e73-9baa56685989"))
+		(pin "2" (uuid "f05b5c0b-ac00-5224-b6bb-f6966ef06dc6"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C26") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C25") (unit 1))
 			)
 		)
 	)
@@ -2585,8 +2531,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "497ea1ef-17c7-53c4-9a58-8a4fb191f116")
-		(property "Reference" "C27"
+		(uuid "a3a38360-43a6-5178-b24f-ba6214cfcc76")
+		(property "Reference" "C26"
 			(at 356.87 74.295 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2610,11 +2556,11 @@
 			(at 356.87 77.47 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "1da94aad-07dd-5951-a3a2-7714a7aeb9bc"))
-		(pin "2" (uuid "c3c9cdfc-ab14-511c-ab89-47035d34d637"))
+		(pin "1" (uuid "f5d50f91-0013-535b-9136-ac70a64e6ae8"))
+		(pin "2" (uuid "fb29e2a6-7a53-5159-83c1-382b08ffcd26"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C27") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C26") (unit 1))
 			)
 		)
 	)
@@ -2639,8 +2585,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "be3e50ee-9f72-539f-8f52-914c791082fd")
-		(property "Reference" "C28"
+		(uuid "497ea1ef-17c7-53c4-9a58-8a4fb191f116")
+		(property "Reference" "C27"
 			(at 234.95 86.995 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2664,11 +2610,11 @@
 			(at 234.95 90.17 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "53c50870-8174-5915-a39e-49c22d8c5ad3"))
-		(pin "2" (uuid "2045204d-cde0-58cf-a0ef-57fd26000958"))
+		(pin "1" (uuid "1da94aad-07dd-5951-a3a2-7714a7aeb9bc"))
+		(pin "2" (uuid "c3c9cdfc-ab14-511c-ab89-47035d34d637"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C28") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C27") (unit 1))
 			)
 		)
 	)
@@ -2693,8 +2639,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "9f90e8fb-bfe5-569b-bd0b-4d625b74c69d")
-		(property "Reference" "C29"
+		(uuid "be3e50ee-9f72-539f-8f52-914c791082fd")
+		(property "Reference" "C28"
 			(at 275.59 86.995 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2718,11 +2664,11 @@
 			(at 275.59 90.17 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "ad6a10e1-58d1-5b96-af29-b613e0524e84"))
-		(pin "2" (uuid "ad56dc6f-99d4-5819-bc90-f352a6f5d2fe"))
+		(pin "1" (uuid "53c50870-8174-5915-a39e-49c22d8c5ad3"))
+		(pin "2" (uuid "2045204d-cde0-58cf-a0ef-57fd26000958"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C29") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C28") (unit 1))
 			)
 		)
 	)
@@ -2747,8 +2693,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "3e4097c1-ad91-560a-a3f4-a0ecde36dc18")
-		(property "Reference" "C30"
+		(uuid "9f90e8fb-bfe5-569b-bd0b-4d625b74c69d")
+		(property "Reference" "C29"
 			(at 316.23 86.995 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2772,11 +2718,11 @@
 			(at 316.23 90.17 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "bc593f8b-80bd-5248-9523-7694c89bc844"))
-		(pin "2" (uuid "d040a60e-0a1d-58f4-9404-b96f1864c9a8"))
+		(pin "1" (uuid "ad6a10e1-58d1-5b96-af29-b613e0524e84"))
+		(pin "2" (uuid "ad56dc6f-99d4-5819-bc90-f352a6f5d2fe"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C30") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C29") (unit 1))
 			)
 		)
 	)
@@ -2801,8 +2747,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "2686f675-5062-5c25-a354-372d86756a90")
-		(property "Reference" "C31"
+		(uuid "3e4097c1-ad91-560a-a3f4-a0ecde36dc18")
+		(property "Reference" "C30"
 			(at 356.87 86.995 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2826,11 +2772,11 @@
 			(at 356.87 90.17 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "148cea7c-e8bc-56a1-be68-d005fbdbc5ae"))
-		(pin "2" (uuid "176fb16b-3f95-59a1-a553-71fd4cd0a016"))
+		(pin "1" (uuid "bc593f8b-80bd-5248-9523-7694c89bc844"))
+		(pin "2" (uuid "d040a60e-0a1d-58f4-9404-b96f1864c9a8"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C31") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C30") (unit 1))
 			)
 		)
 	)
@@ -2855,8 +2801,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "325cd25c-d181-5669-91c1-88c2fb7d85df")
-		(property "Reference" "C32"
+		(uuid "2686f675-5062-5c25-a354-372d86756a90")
+		(property "Reference" "C31"
 			(at 234.95 99.695 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2880,11 +2826,11 @@
 			(at 234.95 102.87 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "ae22e5be-129a-5049-accf-dec3872499f2"))
-		(pin "2" (uuid "9ba27354-0628-5ecd-bcdc-42c28a30738d"))
+		(pin "1" (uuid "148cea7c-e8bc-56a1-be68-d005fbdbc5ae"))
+		(pin "2" (uuid "176fb16b-3f95-59a1-a553-71fd4cd0a016"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C32") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C31") (unit 1))
 			)
 		)
 	)
@@ -2909,8 +2855,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "ece8095a-1a15-5478-bfe9-9dcd91f94288")
-		(property "Reference" "C33"
+		(uuid "325cd25c-d181-5669-91c1-88c2fb7d85df")
+		(property "Reference" "C32"
 			(at 234.95 127.635 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2934,11 +2880,11 @@
 			(at 234.95 130.81 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "bd8cd0f2-3290-542a-b369-a261c3caac1a"))
-		(pin "2" (uuid "b0f3c9c3-6161-56b7-9411-72bac125cbc7"))
+		(pin "1" (uuid "ae22e5be-129a-5049-accf-dec3872499f2"))
+		(pin "2" (uuid "9ba27354-0628-5ecd-bcdc-42c28a30738d"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C33") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C32") (unit 1))
 			)
 		)
 	)
@@ -2963,8 +2909,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "d245802b-b8ff-5e56-9ecf-4c8d507907af")
-		(property "Reference" "C34"
+		(uuid "ece8095a-1a15-5478-bfe9-9dcd91f94288")
+		(property "Reference" "C33"
 			(at 275.59 127.635 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -2988,11 +2934,11 @@
 			(at 275.59 130.81 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "36be3c7f-6355-52f1-9319-61b661ae4181"))
-		(pin "2" (uuid "1780a8d9-c5ab-5a70-a96b-c0d6b773ab11"))
+		(pin "1" (uuid "bd8cd0f2-3290-542a-b369-a261c3caac1a"))
+		(pin "2" (uuid "b0f3c9c3-6161-56b7-9411-72bac125cbc7"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C34") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C33") (unit 1))
 			)
 		)
 	)
@@ -3017,8 +2963,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "03584f94-60d3-51a6-aad9-2db279843a53")
-		(property "Reference" "C35"
+		(uuid "d245802b-b8ff-5e56-9ecf-4c8d507907af")
+		(property "Reference" "C34"
 			(at 316.23 127.635 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3042,11 +2988,11 @@
 			(at 316.23 130.81 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "29313b90-8f24-5e2a-9e50-909afc727325"))
-		(pin "2" (uuid "89d1f60c-1f53-5ce1-86ff-8123d7cea951"))
+		(pin "1" (uuid "36be3c7f-6355-52f1-9319-61b661ae4181"))
+		(pin "2" (uuid "1780a8d9-c5ab-5a70-a96b-c0d6b773ab11"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C35") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C34") (unit 1))
 			)
 		)
 	)
@@ -3071,8 +3017,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "e52becb6-e898-5af2-b944-aebf69bbf896")
-		(property "Reference" "C36"
+		(uuid "03584f94-60d3-51a6-aad9-2db279843a53")
+		(property "Reference" "C35"
 			(at 356.87 127.635 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3096,11 +3042,11 @@
 			(at 356.87 130.81 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "1aa18d81-1214-50c1-9743-47776998a647"))
-		(pin "2" (uuid "bfdbd01e-07d8-5c82-9ffc-69375d82a3f2"))
+		(pin "1" (uuid "29313b90-8f24-5e2a-9e50-909afc727325"))
+		(pin "2" (uuid "89d1f60c-1f53-5ce1-86ff-8123d7cea951"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C36") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C35") (unit 1))
 			)
 		)
 	)
@@ -3125,8 +3071,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "b8c6d857-0ba4-5a92-a688-5efd03c923da")
-		(property "Reference" "C37"
+		(uuid "e52becb6-e898-5af2-b944-aebf69bbf896")
+		(property "Reference" "C36"
 			(at 234.95 140.335 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3150,11 +3096,11 @@
 			(at 234.95 143.51 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "fea2b5e9-6576-5e09-9610-8ef2c063fd24"))
-		(pin "2" (uuid "cbcbc13c-c466-572c-9779-6a1f2212e451"))
+		(pin "1" (uuid "1aa18d81-1214-50c1-9743-47776998a647"))
+		(pin "2" (uuid "bfdbd01e-07d8-5c82-9ffc-69375d82a3f2"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C37") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C36") (unit 1))
 			)
 		)
 	)
@@ -3179,8 +3125,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "10ba3960-0308-536b-b791-2c8e8438df5e")
-		(property "Reference" "C38"
+		(uuid "b8c6d857-0ba4-5a92-a688-5efd03c923da")
+		(property "Reference" "C37"
 			(at 234.95 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3204,11 +3150,11 @@
 			(at 234.95 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "3f21ef3c-5a2d-5b1a-8b5d-e2000239ccc7"))
-		(pin "2" (uuid "9c688ecd-a606-5d59-ac1f-747dc31226a8"))
+		(pin "1" (uuid "fea2b5e9-6576-5e09-9610-8ef2c063fd24"))
+		(pin "2" (uuid "cbcbc13c-c466-572c-9779-6a1f2212e451"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C38") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C37") (unit 1))
 			)
 		)
 	)
@@ -3233,8 +3179,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "0786d26a-a3db-5e55-9725-383198ce925f")
-		(property "Reference" "C39"
+		(uuid "10ba3960-0308-536b-b791-2c8e8438df5e")
+		(property "Reference" "C38"
 			(at 275.59 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3258,11 +3204,11 @@
 			(at 275.59 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "10e084d6-d828-506d-bb9f-d2bfe77ef888"))
-		(pin "2" (uuid "d51d3065-8a3b-5961-bfd6-33538206ab72"))
+		(pin "1" (uuid "3f21ef3c-5a2d-5b1a-8b5d-e2000239ccc7"))
+		(pin "2" (uuid "9c688ecd-a606-5d59-ac1f-747dc31226a8"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C39") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C38") (unit 1))
 			)
 		)
 	)
@@ -3287,8 +3233,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "4d4d7710-f67b-5bf9-ab10-5ccf499af3b2")
-		(property "Reference" "C40"
+		(uuid "0786d26a-a3db-5e55-9725-383198ce925f")
+		(property "Reference" "C39"
 			(at 316.23 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3312,11 +3258,11 @@
 			(at 316.23 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "64098373-0dbd-5043-a405-ba6bbe3f5858"))
-		(pin "2" (uuid "3f2b3921-2bc6-53fc-9be9-097ef65387d3"))
+		(pin "1" (uuid "10e084d6-d828-506d-bb9f-d2bfe77ef888"))
+		(pin "2" (uuid "d51d3065-8a3b-5961-bfd6-33538206ab72"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C40") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C39") (unit 1))
 			)
 		)
 	)
@@ -3341,8 +3287,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "ae2e2a31-1925-5305-90ad-89ecfa4c7dde")
-		(property "Reference" "C41"
+		(uuid "4d4d7710-f67b-5bf9-ab10-5ccf499af3b2")
+		(property "Reference" "C40"
 			(at 356.87 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3366,11 +3312,11 @@
 			(at 356.87 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "1246ea78-790f-554e-a815-0f415d76c2eb"))
-		(pin "2" (uuid "fe180bca-009b-5dbe-b485-17f977894742"))
+		(pin "1" (uuid "64098373-0dbd-5043-a405-ba6bbe3f5858"))
+		(pin "2" (uuid "3f2b3921-2bc6-53fc-9be9-097ef65387d3"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C41") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C40") (unit 1))
 			)
 		)
 	)
@@ -3395,8 +3341,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "314848e7-3717-5197-98a5-241715c5cd00")
-		(property "Reference" "C42"
+		(uuid "ae2e2a31-1925-5305-90ad-89ecfa4c7dde")
+		(property "Reference" "C41"
 			(at 234.95 180.975 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3420,11 +3366,11 @@
 			(at 234.95 184.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "e471fa9d-4f6c-5ef1-93b0-9b54ccb41503"))
-		(pin "2" (uuid "31fac846-2f1d-52f8-9ccd-0ccf97e188fd"))
+		(pin "1" (uuid "1246ea78-790f-554e-a815-0f415d76c2eb"))
+		(pin "2" (uuid "fe180bca-009b-5dbe-b485-17f977894742"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C42") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/5c6da273-175f-5212-8292-b7ea6e765b63" (reference "C41") (unit 1))
 			)
 		)
 	)

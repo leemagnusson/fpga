@@ -368,8 +368,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "75569b5f-aea2-5c00-938f-65a0c4e3584a")
-		(property "Reference" "C44"
+		(uuid "50687030-a4da-5687-bab8-2e119858bb6b")
+		(property "Reference" "C43"
 			(at 48.26 53.975 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -393,11 +393,11 @@
 			(at 48.26 57.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "b1ebc45f-a8c2-53a9-84fd-229ac7a713a7"))
-		(pin "2" (uuid "986c3169-a860-58b8-913b-c8104aaefb95"))
+		(pin "1" (uuid "702eec6d-356b-50df-a068-dd926039c750"))
+		(pin "2" (uuid "469b0b58-1ab6-58c7-8a70-5211c5154318"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/c106e78c-feba-5024-a261-83ce1a00c73e" (reference "C44") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/c106e78c-feba-5024-a261-83ce1a00c73e" (reference "C43") (unit 1))
 			)
 		)
 	)
@@ -476,8 +476,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "0c5b5c4b-698c-5e61-96df-cd80afdfc2d9")
-		(property "Reference" "C45"
+		(uuid "75569b5f-aea2-5c00-938f-65a0c4e3584a")
+		(property "Reference" "C44"
 			(at 129.54 53.975 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -501,11 +501,11 @@
 			(at 129.54 57.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "7ea780a6-ff42-5cd7-bf97-71134e5c8753"))
-		(pin "2" (uuid "6eb29fd2-7552-5040-9abd-05d10a4c2841"))
+		(pin "1" (uuid "b1ebc45f-a8c2-53a9-84fd-229ac7a713a7"))
+		(pin "2" (uuid "986c3169-a860-58b8-913b-c8104aaefb95"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/c106e78c-feba-5024-a261-83ce1a00c73e" (reference "C45") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/c106e78c-feba-5024-a261-83ce1a00c73e" (reference "C44") (unit 1))
 			)
 		)
 	)
@@ -525,21 +525,21 @@
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 	)
-	(symbol (lib_id "artix_m2_canfd:R") (at 170.18 57.15 90) (unit 1)
+	(symbol (lib_id "artix_m2_canfd:C") (at 170.18 57.15 90) (unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "561fc610-efe0-5f99-a239-86f9bec6127d")
-		(property "Reference" "R14"
+		(uuid "0c5b5c4b-698c-5e61-96df-cd80afdfc2d9")
+		(property "Reference" "C45"
 			(at 170.18 53.975 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "68k"
+		(property "Value" "47u"
 			(at 170.18 60.325 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Footprint" "artix_m2_canfd:R_0402"
+		(property "Footprint" "artix_m2_canfd:C_0805"
 			(at 170.18 57.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -547,19 +547,19 @@
 			(at 170.18 57.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Resistor 68k 0402"
+		(property "Description" "Capacitor 47u 6.3V 0805"
 			(at 170.18 57.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "RC0402FR-0768KL"
+		(property "MPN" "GRM21BR60J476ME15L"
 			(at 170.18 57.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "93c45ac8-fe54-5b20-9a20-a9597294ad6c"))
-		(pin "2" (uuid "3187991b-f6a3-5769-afd1-19cf5af5264d"))
+		(pin "1" (uuid "7ea780a6-ff42-5cd7-bf97-71134e5c8753"))
+		(pin "2" (uuid "6eb29fd2-7552-5040-9abd-05d10a4c2841"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/c106e78c-feba-5024-a261-83ce1a00c73e" (reference "R14") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/c106e78c-feba-5024-a261-83ce1a00c73e" (reference "C45") (unit 1))
 			)
 		)
 	)
@@ -571,9 +571,9 @@
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 	)
-	(global_label "FB_1V0" (shape bidirectional) (at 175.26 57.15 0) (fields_autoplaced yes)
+	(global_label "GND" (shape bidirectional) (at 175.26 57.15 0) (fields_autoplaced yes)
 		(effects (font (size 1.27 1.27)) (justify left))
-		(uuid "9ad0f8a4-05dd-5b8b-ab28-69eb3c6adc7c")
+		(uuid "0742b4e5-80eb-5293-8a55-d221b961dbf0")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 175.26 57.15 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
@@ -584,12 +584,12 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "ee4d80f2-50fa-5786-8a3e-71ae04a24c64")
-		(property "Reference" "R15"
+		(uuid "561fc610-efe0-5f99-a239-86f9bec6127d")
+		(property "Reference" "R14"
 			(at 48.26 66.675 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "100k"
+		(property "Value" "68k"
 			(at 48.26 73.025 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -601,33 +601,33 @@
 			(at 48.26 69.85 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Resistor 100k 0402"
+		(property "Description" "Resistor 68k 0402"
 			(at 48.26 69.85 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "RC0402FR-07100KL"
+		(property "MPN" "RC0402FR-0768KL"
 			(at 48.26 69.85 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(pin "1" (uuid "f2000b75-5604-52e0-8704-283935a30be5"))
-		(pin "2" (uuid "39cb2406-4bf4-5c2c-838a-a20cdc21ab99"))
+		(pin "1" (uuid "93c45ac8-fe54-5b20-9a20-a9597294ad6c"))
+		(pin "2" (uuid "3187991b-f6a3-5769-afd1-19cf5af5264d"))
 		(instances
 			(project "artix_m2_canfd"
-				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/c106e78c-feba-5024-a261-83ce1a00c73e" (reference "R15") (unit 1))
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/c106e78c-feba-5024-a261-83ce1a00c73e" (reference "R14") (unit 1))
 			)
 		)
 	)
-	(global_label "FB_1V0" (shape bidirectional) (at 43.18 69.85 180) (fields_autoplaced yes)
+	(global_label "VCC1V0" (shape bidirectional) (at 43.18 69.85 180) (fields_autoplaced yes)
 		(effects (font (size 1.27 1.27)) (justify right))
-		(uuid "5b5c7e1f-18d7-5d6b-8c5b-7cdc8acf8535")
+		(uuid "13722a67-8332-5f91-a5a8-8ab89f6e2174")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 43.18 69.85 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 	)
-	(global_label "GND" (shape bidirectional) (at 53.34 69.85 0) (fields_autoplaced yes)
+	(global_label "FB_1V0" (shape bidirectional) (at 53.34 69.85 0) (fields_autoplaced yes)
 		(effects (font (size 1.27 1.27)) (justify left))
-		(uuid "190161a6-d443-51de-adc9-1a8542264f44")
+		(uuid "9491af6c-3981-54fb-8fe2-19fda177ed78")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 53.34 69.85 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
@@ -638,8 +638,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "466d2917-f446-5dd6-8d31-7c94ce504951")
-		(property "Reference" "R16"
+		(uuid "ee4d80f2-50fa-5786-8a3e-71ae04a24c64")
+		(property "Reference" "R15"
 			(at 88.9 66.675 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -663,6 +663,60 @@
 			(at 88.9 69.85 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
+		(pin "1" (uuid "f2000b75-5604-52e0-8704-283935a30be5"))
+		(pin "2" (uuid "39cb2406-4bf4-5c2c-838a-a20cdc21ab99"))
+		(instances
+			(project "artix_m2_canfd"
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86/c106e78c-feba-5024-a261-83ce1a00c73e" (reference "R15") (unit 1))
+			)
+		)
+	)
+	(global_label "FB_1V0" (shape bidirectional) (at 83.82 69.85 180) (fields_autoplaced yes)
+		(effects (font (size 1.27 1.27)) (justify right))
+		(uuid "b23ea465-e879-50be-9a2f-d419bf994dbd")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 83.82 69.85 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+	)
+	(global_label "GND" (shape bidirectional) (at 93.98 69.85 0) (fields_autoplaced yes)
+		(effects (font (size 1.27 1.27)) (justify left))
+		(uuid "e163bba7-e11d-5b45-8405-f2cd6aeb0ad9")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 93.98 69.85 0)
+			(effects (font (size 1.27 1.27)) (hide yes))
+		)
+	)
+	(symbol (lib_id "artix_m2_canfd:R") (at 129.54 69.85 90) (unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "466d2917-f446-5dd6-8d31-7c94ce504951")
+		(property "Reference" "R16"
+			(at 129.54 66.675 90)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Value" "100k"
+			(at 129.54 73.025 90)
+			(effects (font (size 1.27 1.27)))
+		)
+		(property "Footprint" "artix_m2_canfd:R_0402"
+			(at 129.54 69.85 0)
+			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
+		)
+		(property "Datasheet" ""
+			(at 129.54 69.85 0)
+			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
+		)
+		(property "Description" "Resistor 100k 0402"
+			(at 129.54 69.85 0)
+			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
+		)
+		(property "MPN" "RC0402FR-07100KL"
+			(at 129.54 69.85 0)
+			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
+		)
 		(pin "1" (uuid "fd056d3c-772b-5ceb-9e28-2adf64e41644"))
 		(pin "2" (uuid "72eab3c9-8135-52b3-902f-b46aaea5b6e9"))
 		(instances
@@ -671,19 +725,19 @@
 			)
 		)
 	)
-	(global_label "PG_1V0" (shape bidirectional) (at 83.82 69.85 180) (fields_autoplaced yes)
+	(global_label "PG_1V0" (shape bidirectional) (at 124.46 69.85 180) (fields_autoplaced yes)
 		(effects (font (size 1.27 1.27)) (justify right))
-		(uuid "2b65994a-73f1-5c99-b622-18341f2ef3c1")
+		(uuid "3129b7a8-f524-5201-9c6d-b5a5d56fddd1")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 83.82 69.85 0)
+			(at 124.46 69.85 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 	)
-	(global_label "VIN_3V3" (shape bidirectional) (at 93.98 69.85 0) (fields_autoplaced yes)
+	(global_label "VIN_3V3" (shape bidirectional) (at 134.62 69.85 0) (fields_autoplaced yes)
 		(effects (font (size 1.27 1.27)) (justify left))
-		(uuid "126ebb4b-576d-5ef7-8fc2-53a425779aa6")
+		(uuid "ebeef87d-8a5a-5f83-86b9-d363b0e510bc")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 93.98 69.85 0)
+			(at 134.62 69.85 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 	)
