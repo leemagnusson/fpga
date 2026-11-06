@@ -1,0 +1,7 @@
+(version 1)
+
+# Note: kicad-cli pcb drc ignores this file (KiCad 9.0.8); the GUI reads it.
+(rule "PCIe differential pairs"
+  (condition "A.NetName matches 'PCIE_(TX|RX)[0-3]_[PN].*' || A.NetName matches 'PCIE_REFCLK_.*'")
+  (constraint track_width (min 0.1mm) (opt 0.1mm))
+  (constraint diff_pair_gap (min 0.1mm) (opt 0.15mm)))

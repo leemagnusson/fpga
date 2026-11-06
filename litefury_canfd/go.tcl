@@ -8,6 +8,10 @@
 #   PCI_VENDOR_ID / PCI_DEVICE_ID   PCI IDs (default 0x1760 / 0xFF00, the IDs the
 #                   mainline ctucanfd_pci driver binds to; see README.md)
 #   VIVADO_JOBS     parallel jobs for synthesis/implementation (default 4)
+#   AXI_DATA_WIDTH  PCIe bridge AXI width, 64 or 128 (default 128)
+#   PCIE_GEN        1 (default) or 2
+#   BD_POST_TCL     Tcl file sourced after bd.tcl (experiments)
+#   DEBUG_ILA       if set, add the free-licence ILA described in bd.tcl
 #   CI              if set, skip programming the board at the end
 #
 # Outputs, named like the other projects in this repo so CI treats them alike:
@@ -27,6 +31,12 @@ set ::pci_vendor_id [env_or PCI_VENDOR_ID 0x1760]
 set ::pci_device_id [env_or PCI_DEVICE_ID 0xFF00]
 set can_src [env_or CTU_CAN_FD_SRC $repo/third_party/CTU-CAN-FD/src]
 set jobs    [env_or VIVADO_JOBS 4]
+# AXI data width of the PCIe bridge, 64 or 128. Both verified on hardware at
+# x4 Gen1 (2026-11-03); 64 leaves about 0.3 ns of slack on the 125 MHz AXI
+# clock against 0.07 ns for 128, which is only worth having for Gen2.
+set ::axi_data_width [env_or AXI_DATA_WIDTH 128]
+# PCIe generation, 1 (default, closes timing) or 2 (see README on why not).
+set ::pcie_link_speed [expr {[env_or PCIE_GEN 1] == 2 ? "5.0_GT/s" : "2.5_GT/s"}]
 
 if {![file exists $can_src/slf_rtl.yml] && ![info exists ::env(BD_SMOKE_TEST)]} {
     error "CTU CAN FD core not found at $can_src. Fetch the submodule:\n  git submodule update --init\nor set CTU_CAN_FD_SRC."
@@ -53,9 +63,13 @@ if {[file exists $can_src/slf_rtl.yml]} {
     set_property library ctu_can_fd_rtl [get_files $can_files]
     add_files [list $here/rtl/can_wrap.vhd $here/rtl/can_wrap_bd.v]
 }
+if {[info exists ::env(DEBUG_ILA)]} { add_files [glob $here/rtl/debug/*.v] }
 update_compile_order -fileset sources_1
 
 source $here/bd.tcl
+# Optional hook for experiments: a Tcl file run after the block design exists
+# (e.g. to tweak IP properties); it must leave the design validated and saved.
+if {[info exists ::env(BD_POST_TCL)]} { source $::env(BD_POST_TCL) }
 
 # Import the wrapper as a static source (the project is recreated on every
 # build, so it never goes stale). Its banner, like that of every other file

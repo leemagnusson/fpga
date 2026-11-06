@@ -14,10 +14,14 @@ host <-- PCIe x4 Gen1 --> AXI PCIe bridge --> BAR0: board registers (ID, irq ena
   `third_party/CTU-CAN-FD`.
 - Core clock 80 MHz, so 1 Mbit/s and 8 Mbit/s are exact integer divisions.
 - Interrupts via MSI (legacy INTx fallback).
-- PCIe x4 at Gen1 (2.5 GT/s). Gen2 works electrically on the LiteFury but
-  puts the bridge's AXI clock at 125 MHz, where its unused AXI-to-PCIe
-  slave path misses timing by a few tens of picoseconds on the -2L speed
-  grade; Gen1 halves that clock and a CAN card needs none of the bandwidth.
+- PCIe x4 at Gen1 (2.5 GT/s) by default; `PCIE_GEN=2` builds Gen2. The
+  bridge's AXI clock is 125 MHz either way. Timing on the -2L speed grade is
+  tight in the bridge's unused AXI-to-PCIe slave path: Gen1 closes with
+  0.07 ns of slack at the default 128-bit AXI width (0.3 ns with
+  `AXI_DATA_WIDTH=64`), Gen2 with 0.07 ns now that narrow-burst support on
+  that unused port is off. A CAN card gains nothing from Gen2: CAN FD tops
+  out at 8 Mbit/s and register accesses are latency-bound, where Gen2 saves
+  well under 100 ns per read.
 
 ## Hardware
 
@@ -61,7 +65,17 @@ power-cycle the host:
 ```
 
 Environment: `CTU_CAN_FD_SRC` (core location if not the submodule),
-`PCI_VENDOR_ID` / `PCI_DEVICE_ID`, `VIVADO_JOBS`.
+`PCI_VENDOR_ID` / `PCI_DEVICE_ID`, `VIVADO_JOBS`, `AXI_DATA_WIDTH` (64 or
+128), `DEBUG_ILA` (see below).
+
+### Debug build
+
+`DEBUG_ILA=1 ./go.sh` adds one ILA that watches the PCIe bridge's AXI master
+and both AXI-Lite slave ports plus the resets and clock locks (details at the
+end of `bd.tcl`). It is built around the free BASIC licence, which allows a
+single ILA with at most five probe ports and no System ILA on an interface:
+`rtl/debug/axi_tap_*.v` are monitor-mode taps that bundle each link into a
+few wide vectors. Probe file: `build/canfd.runs/impl_1/canfd_wrapper.ltx`.
 
 ## Linux
 
@@ -79,7 +93,8 @@ cansend can0 123##1.DEADBEEF
 ```
 
 `sw/can-up.sh` sets the bit timing explicitly in quanta rather than with
-`bitrate`/`dbitrate`. The driver assumes a 100 MHz core clock (hard-coded
+`bitrate`/`dbitrate` (`ip` then reports 1.25 Mbit/s, the driver's view at its
+assumed 100 MHz; the wire rate is 1 Mbit/s). The driver assumes a 100 MHz core clock (hard-coded
 in `ctucanfd_pci`), while the core here runs at 80 MHz so that 8 Mbit/s is
 reachable at all (100 MHz / 8 MHz = 12.5 quanta is not possible). With
 explicit quanta the real rates are exact: 80 tq at 12.5 ns = 1 Mbit/s and
@@ -168,9 +183,32 @@ them identically.
   to place the GT lanes in default order: our early constraints win, which
   is required because the LiteFury's M.2 lanes are wired to the GT channels
   out of order (the vendor's sample project does the same).
-- It has not yet been tested on a LiteFury with a transceiver attached; the first bring-up should check
-  `lspci`, then `dmesg` for the driver's BAR/ID messages, then loopback mode
-  (`ip link set can0 type can loopback on`) before a real bus.
+- Bring-up on a LiteFury (2026-11-03, Linux 7.0, Intel B250 host): the card
+  enumerates at x4 Gen1, `ctucanfd_pci` binds, both BAR register maps read
+  correctly (BAR0 ID `0x00000001`, core device ID `0x0207CAFD`), the driver's
+  interrupt enable works and MSI interrupts arrive. With the design in flash
+  the card is up and bound by the driver about five seconds into a cold boot,
+  with the firmware assigning the BARs. The CAN bus itself has not been
+  exercised yet (no transceiver attached).
+- Loopback without a transceiver does not work: the core's loopback mode only
+  makes it receive its own frames, it still samples the bits on `can_rx`, so
+  a lone node with `can_rx` pulled up goes bus-off with bit errors. For a
+  self-test jumper AIO1_P to AIO1_N (`can_tx` to `can_rx`) and bring the
+  interface up with `loopback on presume-ack on`.
+- If every register reads `0xffffffff` while `lspci` looks fine, the TLPs
+  are not reaching the card. Two host-side causes seen during bring-up:
+  1. Loading a bitstream over JTAG resets the card's PCIe config space.
+     `lspci -vv` then marks the regions `[virtual]`. Re-enumerate:
+     `echo 1 > /sys/bus/pci/devices/0000:02:00.0/remove` then
+     `echo 1 > /sys/bus/pci/rescan` (adjust the address).
+  2. After such a hot re-enumeration the root port's memory window ended up
+     disabled in hardware (base `fff0`, limit `0000`) while the kernel
+     still believed it was assigned; the exact trigger was not pinned down.
+     Check with `setpci -s <root port> MEMORY_BASE MEMORY_LIMIT` and compare
+     with `Memory behind bridge` in `lspci -vv`; if they disagree, write the
+     window (`MEMORY_BASE.w=0xd000 MEMORY_LIMIT.w=0xd000` for a window at
+     `0xd0000000`), or power-cycle with the design in flash so the firmware
+     sets everything up.
 - MSI is the expected interrupt path. The legacy INTx fallback assumes the
   bridge alternates Assert/Deassert messages per request, which is untested.
 - Licence: the CTU CAN FD core is free for non-commercial use only, and any

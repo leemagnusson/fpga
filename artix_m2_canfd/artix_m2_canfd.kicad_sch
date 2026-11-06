@@ -1,0 +1,106 @@
+(kicad_sch
+	(version 20250114)
+	(generator "artix_m2_canfd")
+	(generator_version "9.0")
+	(uuid "5271b682-4dc7-550a-ae30-a40b61693c86")
+	(paper "A3")
+	(title_block
+		(title "artix_m2_canfd: M.2 Artix-7 CAN FD card (root)")
+		(rev "A")
+		(company "artix_m2_canfd: M.2 2280 Artix-7 CAN FD card")
+	)
+	(lib_symbols)
+	(sheet (at 30 30) (size 45 20) (fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0.0000))
+		(uuid "a5e4e270-948f-5d96-8133-948221c3c480")
+		(property "Sheetname" "fpga_io"
+			(at 30 29.3 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(property "Sheetfile" "fpga_io.kicad_sch"
+			(at 30 50.6 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(instances
+			(project "artix_m2_canfd"
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86" (page "2"))
+			)
+		)
+	)
+	(sheet (at 90 30) (size 45 20) (fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0.0000))
+		(uuid "21f50a30-f35c-5358-8d96-d69a418a6f26")
+		(property "Sheetname" "m2"
+			(at 90 29.3 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(property "Sheetfile" "m2.kicad_sch"
+			(at 90 50.6 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(instances
+			(project "artix_m2_canfd"
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86" (page "3"))
+			)
+		)
+	)
+	(sheet (at 150 30) (size 45 20) (fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0.0000))
+		(uuid "5c6da273-175f-5212-8292-b7ea6e765b63")
+		(property "Sheetname" "fpga_pwr"
+			(at 150 29.3 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(property "Sheetfile" "fpga_pwr.kicad_sch"
+			(at 150 50.6 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(instances
+			(project "artix_m2_canfd"
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86" (page "4"))
+			)
+		)
+	)
+	(sheet (at 30 70) (size 45 20) (fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0.0000))
+		(uuid "c106e78c-feba-5024-a261-83ce1a00c73e")
+		(property "Sheetname" "power"
+			(at 30 69.3 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(property "Sheetfile" "power.kicad_sch"
+			(at 30 90.6 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(instances
+			(project "artix_m2_canfd"
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86" (page "5"))
+			)
+		)
+	)
+	(sheet (at 90 70) (size 45 20) (fields_autoplaced yes)
+		(stroke (width 0.1524) (type solid))
+		(fill (color 0 0 0 0.0000))
+		(uuid "c9836c32-7fda-5ca0-8e1a-bb74c2ace7c4")
+		(property "Sheetname" "can"
+			(at 90 69.3 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(property "Sheetfile" "can.kicad_sch"
+			(at 90 90.6 0)
+			(effects (font (size 1.27 1.27)) (justify left))
+		)
+		(instances
+			(project "artix_m2_canfd"
+				(path "/5271b682-4dc7-550a-ae30-a40b61693c86" (page "6"))
+			)
+		)
+	)
+	(sheet_instances
+		(path "/" (page "1"))
+	)
+)
