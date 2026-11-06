@@ -3,6 +3,8 @@
 -- Simulation (G_SIM): free-running clocks, no vendor library needed.
 library ieee;
 use ieee.std_logic_1164.all;
+library unisim;
+use unisim.vcomponents.all;   -- real primitives in Vivado, ci/unisim_stub.vhd elsewhere
 
 entity clk_gen is
     generic (
@@ -20,42 +22,6 @@ architecture rtl of clk_gen is
     signal fb, fb_b, c0, c1 : std_logic;
     signal sim_clk, sim_clk90 : std_logic := '0';
 
-    component MMCME2_BASE
-        generic (
-            BANDWIDTH          : string  := "OPTIMIZED";
-            CLKFBOUT_MULT_F    : real    := 5.0;
-            CLKFBOUT_PHASE     : real    := 0.0;
-            CLKIN1_PERIOD      : real    := 0.0;
-            CLKOUT0_DIVIDE_F   : real    := 1.0;
-            CLKOUT0_DUTY_CYCLE : real    := 0.5;
-            CLKOUT0_PHASE      : real    := 0.0;
-            CLKOUT1_DIVIDE     : integer := 1;
-            CLKOUT1_DUTY_CYCLE : real    := 0.5;
-            CLKOUT1_PHASE      : real    := 0.0;
-            CLKOUT2_DIVIDE     : integer := 1;
-            CLKOUT3_DIVIDE     : integer := 1;
-            CLKOUT4_DIVIDE     : integer := 1;
-            CLKOUT5_DIVIDE     : integer := 1;
-            CLKOUT6_DIVIDE     : integer := 1;
-            DIVCLK_DIVIDE      : integer := 1;
-            REF_JITTER1        : real    := 0.0;
-            STARTUP_WAIT       : boolean := false
-        );
-        port (
-            CLKOUT0, CLKOUT0B, CLKOUT1, CLKOUT1B, CLKOUT2, CLKOUT2B,
-            CLKOUT3, CLKOUT3B, CLKOUT4, CLKOUT5, CLKOUT6 : out std_logic;
-            CLKFBOUT, CLKFBOUTB : out std_logic;
-            LOCKED   : out std_logic;
-            CLKIN1   : in  std_logic;
-            PWRDWN   : in  std_logic;
-            RST      : in  std_logic;
-            CLKFBIN  : in  std_logic
-        );
-    end component;
-
-    component BUFG
-        port (O : out std_logic; I : in std_logic);
-    end component;
 begin
     gen_sim : if G_SIM generate
         sim_clk   <= not sim_clk after 2 ns;

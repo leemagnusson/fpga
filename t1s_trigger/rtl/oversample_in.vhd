@@ -12,6 +12,8 @@
 -- testbench needs no vendor library.
 library ieee;
 use ieee.std_logic_1164.all;
+library unisim;
+use unisim.vcomponents.all;   -- real primitives in Vivado, ci/unisim_stub.vhd elsewhere
 
 entity oversample_in is
     generic (
@@ -29,34 +31,6 @@ end entity oversample_in;
 architecture rtl of oversample_in is
     signal q1, q2, q3, q4 : std_logic := '1';
 
-    component ISERDESE2
-        generic (
-            DATA_RATE         : string  := "DDR";
-            DATA_WIDTH        : integer := 4;
-            INTERFACE_TYPE    : string  := "MEMORY";
-            IOBDELAY          : string  := "NONE";
-            NUM_CE            : integer := 2;
-            OFB_USED          : string  := "FALSE";
-            SERDES_MODE       : string  := "MASTER";
-            IS_CLKB_INVERTED  : bit     := '0';
-            IS_OCLKB_INVERTED : bit     := '0'
-        );
-        port (
-            O            : out std_logic;
-            Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8 : out std_logic;
-            SHIFTOUT1, SHIFTOUT2 : out std_logic;
-            BITSLIP      : in  std_logic;
-            CE1, CE2     : in  std_logic;
-            CLK, CLKB    : in  std_logic;
-            CLKDIV, CLKDIVP : in std_logic;
-            D, DDLY      : in  std_logic;
-            DYNCLKDIVSEL, DYNCLKSEL : in std_logic;
-            OCLK, OCLKB  : in  std_logic;
-            OFB          : in  std_logic;
-            RST          : in  std_logic;
-            SHIFTIN1, SHIFTIN2 : in std_logic
-        );
-    end component;
 begin
     gen_sim : if G_SIM generate
         o <= d;

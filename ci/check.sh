@@ -13,7 +13,7 @@
 #   * can_timing         : run the can_sim testbench in GHDL.
 #   * litefury_canfd     : analyse the glue RTL, and the CTU CAN FD core if the
 #                          submodule is checked out (the PCIe IP needs Vivado).
-#   * t1s_trigger        : run the self-checking testbench in GHDL and
+#   * t1s_trigger        : run the self-checking testbenches in GHDL and
 #                          synthesise the top level for Artix-7.
 #   * loose tutorial files in bml1/ : analyse only.
 #
@@ -96,14 +96,19 @@ else
 fi
 
 group "t1s_trigger: run tb_top (GHDL)"
-t1s_rtl="t1s_trigger/rtl/t1s_pkg.vhd t1s_trigger/rtl/dme_rx.vhd t1s_trigger/rtl/t1s_pcs_rx.vhd \
+t1s_rtl="t1s_trigger/rtl/t1s_pkg.vhd t1s_trigger/rtl/oversample_in.vhd t1s_trigger/rtl/edge_time.vhd \
+    t1s_trigger/rtl/sqi_calc.vhd t1s_trigger/rtl/clk_gen.vhd t1s_trigger/rtl/t1s_sqi.vhd t1s_trigger/rtl/dme_rx.vhd t1s_trigger/rtl/t1s_pcs_rx.vhd \
     t1s_trigger/rtl/plca_track.vhd t1s_trigger/rtl/pulse_stretch.vhd t1s_trigger/rtl/seg7.vhd \
     t1s_trigger/rtl/t1s_monitor.vhd t1s_trigger/rtl/oled_font_pkg.vhd t1s_trigger/rtl/bcd_rate.vhd \
     t1s_trigger/rtl/trig_screen.vhd t1s_trigger/rtl/oled_ssd1331.vhd t1s_trigger/rtl/oled_status.vhd \
     t1s_trigger/rtl/top.vhd"
 # shellcheck disable=SC2086
-ghdl -a $GHDL_FLAGS $t1s_rtl t1s_trigger/sim/tb_top.vhd t1s_trigger/sim/tb_oled.vhd
+ghdl -a $GHDL_FLAGS $t1s_rtl t1s_trigger/sim/tb_top.vhd t1s_trigger/sim/tb_oled.vhd t1s_trigger/sim/tb_sqi.vhd
 ghdl --elab-run $GHDL_FLAGS tb_top --ieee-asserts=disable-at-0 --assert-level=error
+endgroup
+
+group "t1s_trigger: run tb_sqi (GHDL), timing-jitter SQI+"
+ghdl --elab-run $GHDL_FLAGS tb_sqi --ieee-asserts=disable-at-0 --assert-level=error
 endgroup
 
 group "t1s_trigger: run tb_oled (GHDL), OLED status display"
