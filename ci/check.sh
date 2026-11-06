@@ -76,6 +76,10 @@ can_src=${CTU_CAN_FD_SRC:-third_party/CTU-CAN-FD/src}
 if [ -f "$can_src/slf_rtl.yml" ]; then
     group "litefury_canfd: analyse CTU CAN FD core (GHDL, library ctu_can_fd_rtl)"
     files=$(sed -n 's/^ *- file: *//p' "$can_src/slf_rtl.yml" | sed "s#^#$can_src/#")
+    # As in litefury_canfd/go.tcl: the project overrides the core's top level
+    # (adds the tx_done/tx_done_txtb_index/sof outputs), so compile
+    # rtl/ctu_can_fd_top.vhd in place of the submodule's copy.
+    files=$(echo "$files" | sed 's#^.*/ctu_can_fd_top\.vhd$#litefury_canfd/rtl/ctu_can_fd_top.vhd#')
     # shellcheck disable=SC2086
     ghdl -a --std=08 --work=ctu_can_fd_rtl --workdir="$WORK" -P"$WORK" $files
     echo "ok: $(echo "$files" | wc -l) files"
