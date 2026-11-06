@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "t1s_tap")(type "KiCad")(uri "${KIPRJMOD}/t1s_tap.kicad_sym")(options "")(descr "project symbols"))
+)

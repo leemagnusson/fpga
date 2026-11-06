@@ -1,0 +1,4 @@
+sim/oled_frame.ppm
+sim/*.ghw
+sim/*.vcd
+sim/*.svg

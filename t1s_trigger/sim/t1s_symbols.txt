@@ -1,0 +1,50 @@
+# GTKWave translate filter for a 5B symbol register (t1s_pcs_rx sym_sr): value -> symbol name.
+# Generated from rtl/t1s_pkg.vhd. Keys are given in binary and in hex so either data format matches.
+00100 H SSD
+04 H SSD
+00111 R ESDOK
+07 R ESDOK
+01000 N BEACON
+08 N BEACON
+01001 1
+09 1
+01010 4
+0A 4
+01011 5
+0B 5
+01101 T ESD
+0D T ESD
+01110 6
+0E 6
+01111 7
+0F 7
+10001 K ESDERR
+11 K ESDERR
+10010 8
+12 8
+10011 9
+13 9
+10100 2
+14 2
+10101 3
+15 3
+10110 A
+16 A
+10111 B
+17 B
+11000 J SYNC / COMMIT
+18 J SYNC / COMMIT
+11001 S ESDJAB
+19 S ESDJAB
+11010 C
+1A C
+11011 D
+1B D
+11100 E
+1C E
+11101 F
+1D F
+11110 0
+1E 0
+11111 I SILENCE
+1F I SILENCE

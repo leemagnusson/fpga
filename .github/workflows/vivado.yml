@@ -37,6 +37,7 @@ jobs:
           - { project: bml1/seg,       name: seg }
           - { project: bml1/seg2,      name: seg2 }
           - { project: litefury_canfd, name: litefury_canfd }
+          - { project: t1s_trigger,    name: t1s_trigger }
     env:
       # go.tcl skips program.tcl (board programming) when CI is set.
       CI: "true"
