@@ -78,6 +78,8 @@ which (rightmost = mode 0). BTNC clears the error counters.
 | 1    | beacons per second                  |
 | 2    | CRC errors since reset              |
 | 3    | protocol errors + runts since reset |
+| 4    | SQI+ (0..1F): left = worst transmission of the last second, right = last transmission |
+| 5    | jitter statistic of the last transmission, S·256/N (see below)   |
 
 ## OLED status screen (Pmod OLEDrgb on JB)
 
@@ -97,6 +99,9 @@ SFD    0 PRT    5   end of packet ok/error/jabber, BRS burst, CRC CRC error,
 EOK   64 ID5   60   PRT protocol error or runt, ID5 packets from node 5 (SW11)
 EER    1 TRG99999   TRG: TRIG0 pulses actually produced (always cyan)
 ERR    8 HB     9   ERR: any error, as on JA7 (cyan); HB: heartbeat runs
+================.   bottom pixel row: SQI+ bar, 3 px per step (green >= 24,
+                    yellow >= 12, red below) on a dim track, white mark at the
+                    worst SQI+ of the last second
 ```
 
 The simulation in `sim/tb_oled.vhd` decodes the SPI stream and writes the
@@ -121,6 +126,48 @@ it is complete about 60 ns after the line is released, which the two receivers
 see directly, so events that end a transmission (ESD, heartbeat) come 100 to
 140 ns after the last edge on the wire. The delay is constant, so set the
 scope's trigger delay once.
+
+## Signal quality from timing jitter (SQI+)
+
+Every transmission gets a signal-quality figure on the same 0..31 scale as
+the LAN8670 Rev D0's OPEN Alliance "DCQ SQI+" register (see
+`arb/README.md`: on the bench that PHY reports SQI+ ≈ 33 − 8.8·σ for Gaussian
+edge jitter σ in ns rms), but per frame instead of after a measurement
+window, and visible on the seven-segment display (modes 4 and 5).
+
+- `rtl/clk_gen.vhd`: an MMCM makes 250 MHz and 250 MHz + 90° from the 100 MHz
+  oscillator.
+- `rtl/oversample_in.vhd`: each receiver pin goes through an ISERDESE2 in
+  oversampling mode, which samples it at 0/90/180/270° of the 250 MHz clock,
+  i.e. every 1 ns. The ISERDES pass-through output feeds the existing 100 MHz
+  decoder, so nothing else changes.
+- `rtl/edge_time.vhd` (250 MHz): timestamps every receiver assertion,
+  classifies each interval as a half (40 ns) or full (80 ns) cell, takes its
+  error e against nominal and the difference d between e and the previous e
+  of the same kind (half/full × edge polarity). Differences cancel
+  duty-cycle distortion, the delay mismatch between the two receivers and the
+  transmitter's clock offset, so no mean has to be subtracted. It sums d² and
+  counts, and hands S and N over at the end of the transmission (192 ns
+  without an edge).
+- `rtl/sqi_calc.vhd` (100 MHz): var(d) = 4σ² + 1/3 ns² for edge jitter σ and
+  1 ns sampling, so SQI+ is the largest k with S < N·(4σ_k² + 1/3),
+  σ_k = (33 − k)/8.8 ns: at most 32 multiply-and-compare steps, no division.
+  A generic `SQI_FLOOR2_X256` (σ_floor² × 256) subtracts the receivers' own
+  jitter once it has been measured against a PHY on a clean signal. The
+  divider that produces S·256/N for mode 5 is for that calibration: on a
+  clean line it reads about 0x55 (1/3 × 256); the floor is (value − 0x55)/4.
+- `sim/tb_sqi.vhd`: a jittered DME transmitter checks the scale: σ = 0, 0.5,
+  1, 2, 3, 4 ns give 31, 28, 24, 15, 7, 0, and a 4 ns receiver skew changes
+  nothing. Transmissions shorter than 64 intervals are ignored.
+
+Status: simulated (GHDL, behavioural clocks and samplers via the `G_SIM`
+generic), not yet built or tried on the board. Things to check on the first
+Vivado build: the ISERDESE2 oversample timing (the four outputs are
+re-registered on the 250 MHz clock; Q4 changes only 1 ns before that edge),
+the MMCM/BUFG placement, and `set_clock_groups` in `constraints/top_timing.xdc`.
+On hardware, compare mode 4 against `tools/t1s0_phy_regs.py --dcq` on the
+host PHY while `tools/sqi_sweep.py` steps the generator's jitter; the
+receivers' floor then goes into `SQI_FLOOR2_X256`.
 
 ## How it decodes
 

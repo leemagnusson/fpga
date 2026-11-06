@@ -60,7 +60,7 @@ begin
     dut : entity work.oled_status
         generic map (CLKS_PER_MS => CLKS_PER_MS, SPI_DIV => SPI_DIV)
         port map (clk => clk, sec_tick => sec_tick, sw => sw, plca_synced => '1',
-                  events => events, frame => frame,
+                  events => events, sqi_last => to_unsigned(24, 5), sqi_min => to_unsigned(15, 5), frame => frame,
                   cs_n => cs_n, mosi => mosi, sck => sck, dc => dc,
                   res_n => res_n, vccen => vccen, pmoden => pmoden);
 

@@ -13,6 +13,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.t1s_pkg.all;
+use std.env.all;
 
 entity tb_top is
 end entity tb_top;
@@ -81,6 +82,7 @@ begin
             plca_synced => plca_synced, tx_id => tx_id, frame_octets => frame_octets);
 
     dut_top : entity work.top
+        generic map (G_SIM => true)
         port map (
             clk => clk, sw => sw, led => led,
             btnC => '0', btnU => '0', btnD => '0', btnL => '0', btnR => '0',
@@ -374,6 +376,7 @@ begin
             report integer'image(errors) & " checks failed" severity failure;
         end if;
         done <= true;
-        wait;
+        wait for 1 ns;
+        finish;                       -- the top level's simulation clocks run forever otherwise
     end process;
 end architecture sim;

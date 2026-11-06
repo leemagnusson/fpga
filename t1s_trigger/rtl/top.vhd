@@ -9,7 +9,9 @@ use work.trig_screen_pkg.all;
 entity top is
     generic (
         OLED_CLKS_PER_MS : positive := 100_000;   -- display timing (shrunk by the simulation)
-        OLED_SPI_DIV     : positive := 16
+        OLED_SPI_DIV     : positive := 16;
+        G_SIM            : boolean  := false;     -- behavioural clocks / samplers instead of MMCM and ISERDES
+        SQI_FLOOR2_X256  : natural  := 0          -- receiver jitter floor for the SQI+ scale, ns^2 x 256
     );
     port (
         clk        : in  std_logic;                      -- 100 MHz
@@ -42,6 +44,7 @@ end entity top;
 architecture rtl of top is
     -- switch-selectable conditions, index = switch number
     constant N_COND : natural := 12;
+    constant N_MODES : natural := 6;        -- seven-segment display modes
     signal cond   : std_logic_vector(N_COND - 1 downto 0);
     signal ev_beacon, ev_commit, ev_ssd, ev_sfd, ev_esd_ok, ev_esd_err,
            ev_esd_jab, ev_burst, ev_crc_err, ev_runt, ev_proto_err, ev_hb,
@@ -69,16 +72,37 @@ architecture rtl of top is
     signal frames_acc, beacons_acc : unsigned(15 downto 0) := (others => '0');
     signal frames_ps, beacons_ps   : unsigned(15 downto 0) := (others => '0');
     signal crc_errs, proto_errs    : unsigned(15 downto 0) := (others => '0');
-    signal mode      : unsigned(1 downto 0) := (others => '0');
+    signal mode      : unsigned(2 downto 0) := (others => '0');
     signal oled_ev   : std_logic_vector(N_RATES - 1 downto 0);
     signal disp_val  : std_logic_vector(15 downto 0);
     signal disp_dp   : std_logic_vector(3 downto 0);
+
+    -- timing-jitter SQI+ (one result per transmission)
+    signal clk_fast, clk_f90, clk_locked : std_logic;
+    signal rx_p, rxn_p : std_logic;                   -- receiver pins after the ISERDES pass-through
+    signal sqi       : unsigned(4 downto 0);
+    signal sqi_valid, var_valid : std_logic;
+    signal var_x256  : unsigned(19 downto 0);
+    signal sqi_last  : unsigned(4 downto 0) := (others => '0');
+    signal sqi_min_acc, sqi_min_1s : unsigned(4 downto 0) := (others => '1');
+    signal sqi_var   : unsigned(15 downto 0) := (others => '0');
 begin
+    u_clk : entity work.clk_gen
+        generic map (G_SIM => G_SIM)
+        port map (clk_in => clk, clk_fast => clk_fast, clk_f90 => clk_f90, locked => clk_locked);
+
+    u_sqi : entity work.t1s_sqi
+        generic map (G_SIM => G_SIM, FLOOR2_X256 => SQI_FLOOR2_X256)
+        port map (clk => clk, clk_fast => clk_fast, clk_f90 => clk_f90,
+                  rx_i => ja1_rx, rxn_i => ja10_rxn, rx_o => rx_p, rxn_o => rxn_p,
+                  sqi => sqi, sqi_valid => sqi_valid, var_x256 => var_x256, var_valid => var_valid,
+                  edge_dbg => open);
+
     sel_id <= resize(unsigned(sw(15 downto 12)), 8);
 
     u_mon : entity work.t1s_monitor
         port map (
-            clk => clk, rx_i => ja1_rx, rxn_i => ja10_rxn, sel_id => sel_id,
+            clk => clk, rx_i => rx_p, rxn_i => rxn_p, sel_id => sel_id,
             ev_beacon => ev_beacon, ev_commit => ev_commit, ev_ssd => ev_ssd,
             ev_sfd => ev_sfd, ev_esd_ok => ev_esd_ok, ev_esd_err => ev_esd_err,
             ev_esd_jab => ev_esd_jab, ev_burst => ev_burst, ev_crc_err => ev_crc_err,
@@ -188,22 +212,41 @@ begin
             end if;
 
             if btn_press(3) = '1' then          -- btnU
-                mode <= mode + 1;
+                if mode = N_MODES - 1 then mode <= (others => '0'); else mode <= mode + 1; end if;
             elsif btn_press(2) = '1' then       -- btnD
-                mode <= mode - 1;
+                if mode = 0 then mode <= to_unsigned(N_MODES - 1, 3); else mode <= mode - 1; end if;
+            end if;
+
+            -- SQI+: last transmission, and the worst of the last second
+            if sqi_valid = '1' then
+                sqi_last <= sqi;
+                if sqi < sqi_min_acc then
+                    sqi_min_acc <= sqi;
+                end if;
+            end if;
+            if var_valid = '1' then
+                sqi_var <= var_x256(15 downto 0);
+            end if;
+            if sec_tick = '1' then
+                sqi_min_1s  <= sqi_min_acc;
+                sqi_min_acc <= (others => '1');
             end if;
         end if;
     end process;
 
     with mode select disp_val <=
-        std_logic_vector(frames_ps)  when "00",   -- good frames per second
-        std_logic_vector(beacons_ps) when "01",   -- beacons per second
-        std_logic_vector(crc_errs)   when "10",   -- CRC errors since reset
-        std_logic_vector(proto_errs) when others; -- protocol errors since reset
+        std_logic_vector(frames_ps)  when "000",  -- good frames per second
+        std_logic_vector(beacons_ps) when "001",  -- beacons per second
+        std_logic_vector(crc_errs)   when "010",  -- CRC errors since reset
+        std_logic_vector(proto_errs) when "011",  -- protocol errors since reset
+        "000" & std_logic_vector(sqi_min_1s) & "000" & std_logic_vector(sqi_last) when "100",  -- SQI+ worst/1 s, last
+        std_logic_vector(sqi_var)    when others; -- jitter variance S*256/N of the last transmission, hex
     disp_dp <= "0001" when mode = 0 else
                "0010" when mode = 1 else
                "0100" when mode = 2 else
-               "1000";
+               "1000" when mode = 3 else
+               "0011" when mode = 4 else
+               "1100";
 
     u_seg : entity work.seg7
         port map (clk => clk, value => disp_val, dp => disp_dp, seg => seg, dp_o => dp, an => an);
@@ -214,7 +257,7 @@ begin
     u_oled : entity work.oled_status
         generic map (CLKS_PER_MS => OLED_CLKS_PER_MS, SPI_DIV => OLED_SPI_DIV)
         port map (clk => clk, sec_tick => sec_tick, sw => sw, plca_synced => plca_synced,
-                  events => oled_ev, frame => open,
+                  events => oled_ev, sqi_last => sqi_last, sqi_min => sqi_min_1s, frame => open,
                   cs_n => jb1_cs, mosi => jb2_mosi, sck => jb4_sck, dc => jb7_dc,
                   res_n => jb8_res, vccen => jb9_vccen, pmoden => jb10_pmoden);
 end architecture rtl;
