@@ -19,6 +19,7 @@ entity t1s_sqi is
         clk        : in  std_logic;       -- 100 MHz
         clk_fast   : in  std_logic;       -- 250 MHz
         clk_f90    : in  std_logic;       -- 250 MHz + 90 degrees
+        clk_div    : in  std_logic;       -- 125 MHz, aligned with clk_fast
         rx_i       : in  std_logic;       -- Pmod receiver U1 pin
         rxn_i      : in  std_logic;       -- Pmod receiver U2 pin
         rx_o       : out std_logic;       -- pass-through for dme_rx
@@ -33,21 +34,21 @@ entity t1s_sqi is
 end entity t1s_sqi;
 
 architecture rtl of t1s_sqi is
-    signal s_rx, s_rxn : std_logic_vector(3 downto 0);
+    signal s_rx, s_rxn : std_logic_vector(7 downto 0);
     signal tot_s   : unsigned(27 downto 0);
     signal tot_n   : unsigned(13 downto 0);
     signal tot_tgl : std_logic;
 begin
     u_os_rx : entity work.oversample_in
         generic map (G_SIM => G_SIM)
-        port map (clk => clk_fast, clk90 => clk_f90, d => rx_i, o => rx_o, q => s_rx);
+        port map (clk => clk_fast, clk90 => clk_f90, clk_div => clk_div, d => rx_i, o => rx_o, q => s_rx);
 
     u_os_rxn : entity work.oversample_in
         generic map (G_SIM => G_SIM)
-        port map (clk => clk_fast, clk90 => clk_f90, d => rxn_i, o => rxn_o, q => s_rxn);
+        port map (clk => clk_fast, clk90 => clk_f90, clk_div => clk_div, d => rxn_i, o => rxn_o, q => s_rxn);
 
     u_edge : entity work.edge_time
-        port map (clk => clk_fast, s_rx => s_rx, s_rxn => s_rxn,
+        port map (clk => clk_div, s_rx => s_rx, s_rxn => s_rxn,
                   tot_s => tot_s, tot_n => tot_n, tot_tgl => tot_tgl, edge => edge_dbg);
 
     u_calc : entity work.sqi_calc

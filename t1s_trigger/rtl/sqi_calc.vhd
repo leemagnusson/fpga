@@ -23,7 +23,7 @@ entity sqi_calc is
     );
     port (
         clk       : in  std_logic;                    -- 100 MHz
-        -- from edge_time (250 MHz domain), stable while tot_tgl is steady
+        -- from edge_time (125 MHz domain), stable while tot_tgl is steady
         tot_s     : in  unsigned(27 downto 0);
         tot_n     : in  unsigned(13 downto 0);
         tot_tgl   : in  std_logic;
@@ -57,6 +57,8 @@ architecture rtl of sqi_calc is
     signal n_lat : unsigned(13 downto 0) := (others => '0');
     signal busy  : std_logic := '0';
     signal k     : unsigned(4 downto 0) := (others => '0');
+    signal prod  : unsigned(29 downto 0) := (others => '0');   -- N * THR(k), registered
+    signal cmp   : std_logic := '0';                           -- prod is valid for k this cycle
     -- restoring divider for var_x256
     signal dv_rem  : unsigned(36 downto 0) := (others => '0');
     signal dv_q    : unsigned(35 downto 0) := (others => '0');
@@ -77,23 +79,29 @@ begin
                     n_lat <= tot_n;
                     k     <= to_unsigned(31, 5);
                     busy  <= '1';
+                    cmp   <= '0';
                     dv_rem  <= (others => '0');
                     dv_q    <= resize(tot_s, 36) sll 8;
                     dv_cnt  <= (others => '0');
                     dv_busy <= '1';
                 end if;
             else
-                -- largest k with S*256 < N * THR(k), from the best level down
-                if s_lat < resize(n_lat * THR(to_integer(k)), 36) then
-                    sqi <= k;
-                    sqi_valid <= '1';
-                    busy <= '0';
-                elsif k = 0 then
-                    sqi <= (others => '0');
-                    sqi_valid <= '1';
-                    busy <= '0';
-                else
-                    k <= k - 1;
+                -- largest k with S*256 < N * THR(k), from the best level down;
+                -- two clocks per k: multiply, then compare
+                prod <= n_lat * THR(to_integer(k));
+                cmp  <= not cmp;
+                if cmp = '1' then
+                    if s_lat < resize(prod, 36) then
+                        sqi <= k;
+                        sqi_valid <= '1';
+                        busy <= '0';
+                    elsif k = 0 then
+                        sqi <= (others => '0');
+                        sqi_valid <= '1';
+                        busy <= '0';
+                    else
+                        k <= k - 1;
+                    end if;
                 end if;
             end if;
 

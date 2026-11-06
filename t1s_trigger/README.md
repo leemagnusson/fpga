@@ -135,13 +135,14 @@ the LAN8670 Rev D0's OPEN Alliance "DCQ SQI+" register (see
 edge jitter σ in ns rms), but per frame instead of after a measurement
 window, and visible on the seven-segment display (modes 4 and 5).
 
-- `rtl/clk_gen.vhd`: an MMCM makes 250 MHz and 250 MHz + 90° from the 100 MHz
-  oscillator.
+- `rtl/clk_gen.vhd`: an MMCM makes 250 MHz, 250 MHz + 90° and an aligned
+  125 MHz from the 100 MHz oscillator.
 - `rtl/oversample_in.vhd`: each receiver pin goes through an ISERDESE2 in
   oversampling mode, which samples it at 0/90/180/270° of the 250 MHz clock,
-  i.e. every 1 ns. The ISERDES pass-through output feeds the existing 100 MHz
-  decoder, so nothing else changes.
-- `rtl/edge_time.vhd` (250 MHz): timestamps every receiver assertion,
+  i.e. every 1 ns; two periods are gathered into eight samples per 125 MHz
+  clock so the arithmetic has an 8 ns budget. The ISERDES pass-through output
+  feeds the existing 100 MHz decoder, so nothing else changes.
+- `rtl/edge_time.vhd` (125 MHz): timestamps every receiver assertion,
   classifies each interval as a half (40 ns) or full (80 ns) cell, takes its
   error e against nominal and the difference d between e and the previous e
   of the same kind (half/full × edge polarity). Differences cancel
@@ -164,7 +165,9 @@ Status: simulated (GHDL, behavioural clocks and samplers via the `G_SIM`
 generic), not yet built or tried on the board. Things to check on the first
 Vivado build: the ISERDESE2 oversample timing (the four outputs are
 re-registered on the 250 MHz clock; Q4 changes only 1 ns before that edge),
-the MMCM/BUFG placement, and `set_clock_groups` in `constraints/top_timing.xdc`.
+the 250 → 125 MHz hand-off register in `oversample_in.vhd` (a related-clock
+path with a 4 ns budget), the MMCM/BUFG placement, and `set_clock_groups` in
+`constraints/top_timing.xdc`.
 On hardware, compare mode 4 against `tools/t1s0_phy_regs.py --dcq` on the
 host PHY while `tools/sqi_sweep.py` steps the generator's jitter; the
 receivers' floor then goes into `SQI_FLOOR2_X256`.

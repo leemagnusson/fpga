@@ -1,4 +1,6 @@
--- Four samples per clock of one input pin, 1 ns apart at 250 MHz.
+-- Eight samples per 125 MHz clock of one input pin, 1 ns apart: four per
+-- 250 MHz period from an oversampling ISERDES, two periods gathered per
+-- clk_div cycle so the arithmetic downstream runs at 125 MHz.
 --
 -- Synthesis: an ISERDESE2 in OVERSAMPLE mode, which samples D on the rising
 -- and falling edges of CLK and of OCLK (CLK shifted by 90 degrees), i.e. at
@@ -22,14 +24,16 @@ entity oversample_in is
     port (
         clk    : in  std_logic;                     -- 250 MHz, 0 degrees
         clk90  : in  std_logic;                     -- 250 MHz, 90 degrees
+        clk_div : in std_logic;                     -- 125 MHz, aligned with clk
         d      : in  std_logic;                     -- the pin
         o      : out std_logic;                     -- pass-through (asynchronous)
-        q      : out std_logic_vector(3 downto 0)   -- q(0) earliest ... q(3) latest, at clk
+        q      : out std_logic_vector(7 downto 0)   -- q(0) earliest ... q(7) latest, at clk_div
     );
 end entity oversample_in;
 
 architecture rtl of oversample_in is
     signal q1, q2, q3, q4 : std_logic := '1';
+    signal pair : std_logic_vector(7 downto 0) := (others => '1');   -- last two 250 MHz periods
 
 begin
     gen_sim : if G_SIM generate
@@ -57,11 +61,19 @@ begin
                 SHIFTIN1 => '0', SHIFTIN2 => '0');
     end generate;
 
-    -- present the four samples of the period that just ended, in time order
+    -- shift the four samples of the period that just ended into an 8-sample
+    -- window; clk_div (every other clk edge) takes a complete window each time,
+    -- whichever of the two phases it lands on
     process (clk)
     begin
         if rising_edge(clk) then
-            q <= q4 & q3 & q2 & q1;
+            pair <= q4 & q3 & q2 & q1 & pair(7 downto 4);
+        end if;
+    end process;
+    process (clk_div)
+    begin
+        if rising_edge(clk_div) then
+            q <= pair;
         end if;
     end process;
 end architecture rtl;

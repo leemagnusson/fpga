@@ -19,7 +19,7 @@ architecture sim of tb_sqi is
     constant HALF : time := 40 ns;
 
     signal clk : std_logic := '0';
-    signal clk_fast, clk_f90, locked : std_logic;
+    signal clk_fast, clk_f90, clk_div, locked : std_logic;
     signal pol, driving : std_logic := '0';
     signal skew : time := 0 ns;             -- extra delay of the "positive" receiver
     signal n_raw, p_raw : std_logic;
@@ -36,7 +36,7 @@ begin
 
     u_clk : entity work.clk_gen
         generic map (G_SIM => true)
-        port map (clk_in => clk, clk_fast => clk_fast, clk_f90 => clk_f90, locked => locked);
+        port map (clk_in => clk, clk_fast => clk_fast, clk_f90 => clk_f90, clk_div => clk_div, locked => locked);
 
     -- receivers: U1 low while the line is negative, U2 low while positive
     n_raw <= '0' when driving = '1' and pol = '0' else '1';
@@ -46,7 +46,7 @@ begin
 
     dut : entity work.t1s_sqi
         generic map (G_SIM => true)
-        port map (clk => clk, clk_fast => clk_fast, clk_f90 => clk_f90,
+        port map (clk => clk, clk_fast => clk_fast, clk_f90 => clk_f90, clk_div => clk_div,
                   rx_i => line_n, rxn_i => line_p, rx_o => open, rxn_o => open,
                   sqi => sqi, sqi_valid => sqi_valid, var_x256 => var_x256,
                   var_valid => var_valid, edge_dbg => edge_dbg);

@@ -1,7 +1,7 @@
--- Timing-jitter statistics of a 10BASE-T1S transmission, in the 250 MHz
--- oversampling clock domain.
+-- Timing-jitter statistics of a 10BASE-T1S transmission, in the 125 MHz
+-- processing clock domain.
 --
--- Input: four 1 ns samples per clock of each Pmod receiver (see dme_rx.vhd
+-- Input: eight 1 ns samples per clock of each Pmod receiver (see dme_rx.vhd
 -- for what the two receivers mean). An "edge" is a receiver asserting (going
 -- low): that is the moment the line crosses the receiver's threshold in the
 -- new direction, and exactly one receiver asserts for every transition on
@@ -29,12 +29,12 @@ use ieee.numeric_std.all;
 
 entity edge_time is
     generic (
-        IDLE_CLKS : natural := 48          -- 192 ns without an edge ends the transmission
+        IDLE_CLKS : natural := 24          -- 192 ns without an edge ends the transmission
     );
     port (
-        clk      : in  std_logic;                     -- 250 MHz
-        s_rx     : in  std_logic_vector(3 downto 0);  -- receiver U1 samples, (0) earliest
-        s_rxn    : in  std_logic_vector(3 downto 0);  -- receiver U2 samples
+        clk      : in  std_logic;                     -- 125 MHz
+        s_rx     : in  std_logic_vector(7 downto 0);  -- receiver U1 samples, (0) earliest
+        s_rxn    : in  std_logic_vector(7 downto 0);  -- receiver U2 samples
         -- totals of the last transmission, valid when tot_tgl changes
         tot_s    : out unsigned(27 downto 0) := (others => '0');   -- sum of d^2 (ns^2)
         tot_n    : out unsigned(13 downto 0) := (others => '0');   -- number of d
@@ -52,10 +52,10 @@ architecture rtl of edge_time is
     signal prev_rx, prev_rxn : std_logic := '1';
     -- stage 1: edge found in this clock
     signal e1_hit : std_logic := '0';
-    signal e1_pos : unsigned(1 downto 0) := (others => '0');
+    signal e1_pos : unsigned(2 downto 0) := (others => '0');
     signal e1_pol : std_logic := '0';           -- '1': line went positive (U2 asserted)
     -- timestamps
-    signal clk_cnt : unsigned(15 downto 0) := (others => '0');
+    signal clk_cnt : unsigned(14 downto 0) := (others => '0');
     signal last_ts : unsigned(17 downto 0) := (others => '0');
     signal have_ts : std_logic := '0';
     -- stage 2: interval
@@ -83,10 +83,10 @@ architecture rtl of edge_time is
     signal flush    : std_logic := '0';
 begin
     process (clk)
-        variable a_rx, a_rxn : std_logic_vector(3 downto 0);
+        variable a_rx, a_rxn : std_logic_vector(7 downto 0);
         variable p_rx, p_rxn : std_logic;
         variable hit : std_logic;
-        variable pos : unsigned(1 downto 0);
+        variable pos : unsigned(2 downto 0);
         variable pol : std_logic;
         variable ts  : unsigned(17 downto 0);
         variable d   : signed(7 downto 0);
@@ -95,19 +95,19 @@ begin
         if rising_edge(clk) then
             -- ---- stage 1: first assertion in this clock ----------------------
             p_rx := prev_rx; p_rxn := prev_rxn;
-            hit := '0'; pos := "00"; pol := '0';
-            for i in 0 to 3 loop
+            hit := '0'; pos := "000"; pol := '0';
+            for i in 0 to 7 loop
                 a_rx(i)  := p_rx  and not s_rx(i);
                 a_rxn(i) := p_rxn and not s_rxn(i);
                 p_rx := s_rx(i); p_rxn := s_rxn(i);
             end loop;
-            for i in 3 downto 0 loop            -- lowest index wins
+            for i in 7 downto 0 loop            -- lowest index wins
                 if a_rx(i) = '1' or a_rxn(i) = '1' then
-                    hit := '1'; pos := to_unsigned(i, 2); pol := a_rxn(i);
+                    hit := '1'; pos := to_unsigned(i, 3); pol := a_rxn(i);
                 end if;
             end loop;
-            prev_rx  <= s_rx(3);
-            prev_rxn <= s_rxn(3);
+            prev_rx  <= s_rx(7);
+            prev_rxn <= s_rxn(7);
             e1_hit <= hit; e1_pos <= pos; e1_pol <= pol;
             clk_cnt <= clk_cnt + 1;
 

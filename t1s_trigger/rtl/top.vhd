@@ -78,7 +78,7 @@ architecture rtl of top is
     signal disp_dp   : std_logic_vector(3 downto 0);
 
     -- timing-jitter SQI+ (one result per transmission)
-    signal clk_fast, clk_f90, clk_locked : std_logic;
+    signal clk_fast, clk_f90, clk_div, clk_locked : std_logic;
     signal rx_p, rxn_p : std_logic;                   -- receiver pins after the ISERDES pass-through
     signal sqi       : unsigned(4 downto 0);
     signal sqi_valid, var_valid : std_logic;
@@ -89,11 +89,11 @@ architecture rtl of top is
 begin
     u_clk : entity work.clk_gen
         generic map (G_SIM => G_SIM)
-        port map (clk_in => clk, clk_fast => clk_fast, clk_f90 => clk_f90, locked => clk_locked);
+        port map (clk_in => clk, clk_fast => clk_fast, clk_f90 => clk_f90, clk_div => clk_div, locked => clk_locked);
 
     u_sqi : entity work.t1s_sqi
         generic map (G_SIM => G_SIM, FLOOR2_X256 => SQI_FLOOR2_X256)
-        port map (clk => clk, clk_fast => clk_fast, clk_f90 => clk_f90,
+        port map (clk => clk, clk_fast => clk_fast, clk_f90 => clk_f90, clk_div => clk_div,
                   rx_i => ja1_rx, rxn_i => ja10_rxn, rx_o => rx_p, rxn_o => rxn_p,
                   sqi => sqi, sqi_valid => sqi_valid, var_x256 => var_x256, var_valid => var_valid,
                   edge_dbg => open);
