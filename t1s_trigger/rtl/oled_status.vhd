@@ -17,6 +17,8 @@ entity oled_status is
         sw          : in  std_logic_vector(15 downto 0);
         plca_synced : in  std_logic;
         events      : in  std_logic_vector(N_RATES - 1 downto 0);  -- one-clock pulses, see trig_screen
+        sqi_last    : in  unsigned(4 downto 0) := (others => '0');
+        sqi_min     : in  unsigned(4 downto 0) := (others => '0');
         frame       : out std_logic;
         -- Pmod OLEDrgb
         cs_n, mosi, sck, dc, res_n, vccen, pmoden : out std_logic
@@ -36,6 +38,7 @@ begin
 
     u_screen : entity work.trig_screen
         port map (clk => clk, sw => sw, plca_synced => plca_synced, rates => rates,
+                  sqi_last => sqi_last, sqi_min => sqi_min,
                   px_x => px_x, px_y => px_y, px_rgb => px_rgb);
 
     u_oled : entity work.oled_ssd1331

@@ -1,5 +1,10 @@
 # Sources in compile order (also used by ci/check.sh)
 read_vhdl -vhdl2008 rtl/t1s_pkg.vhd
+read_vhdl -vhdl2008 rtl/oversample_in.vhd
+read_vhdl -vhdl2008 rtl/edge_time.vhd
+read_vhdl -vhdl2008 rtl/sqi_calc.vhd
+read_vhdl -vhdl2008 rtl/clk_gen.vhd
+read_vhdl -vhdl2008 rtl/t1s_sqi.vhd
 read_vhdl -vhdl2008 rtl/dme_rx.vhd
 read_vhdl -vhdl2008 rtl/t1s_pcs_rx.vhd
 read_vhdl -vhdl2008 rtl/plca_track.vhd

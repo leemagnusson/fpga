@@ -10,6 +10,10 @@
 --           EOK12345 ID512345   (ID5: packets from node SW15..12, SW11)
 --           EER12345 TRG12345   TRG: TRIG0 pulses actually produced, cyan
 --   row 7   ERR12345 HB 12345   any error (TRIG3), heartbeat runs; cyan/white
+--   y = 63  ===========.....     SQI+ bar: 3 pixels per step (0..31 = 0..93 px),
+--                               green >= 24, yellow >= 12, red below, dim grey
+--                               track; a white 2-pixel mark at the worst SQI+
+--                               of the last second.
 --
 -- Rate inputs are 5-digit BCD (see bcd_rate), index: 0 beacon, 1 commit,
 -- 2 ssd, 3 sfd, 4 esd_ok, 5 esd_err, 6 esd_jab, 7 burst, 8 crc_err,
@@ -39,6 +43,8 @@ entity trig_screen is
         sw          : in  std_logic_vector(15 downto 0);
         plca_synced : in  std_logic;
         rates       : in  t_rates(0 to N_RATES - 1);
+        sqi_last    : in  unsigned(4 downto 0) := (others => '0');   -- SQI+ of the last transmission
+        sqi_min     : in  unsigned(4 downto 0) := (others => '0');   -- worst SQI+ in the last second
         px_x        : in  unsigned(6 downto 0);
         px_y        : in  unsigned(5 downto 0);
         px_rgb      : out std_logic_vector(15 downto 0) := (others => '0')
@@ -56,9 +62,11 @@ architecture rtl of trig_screen is
     constant C_YELLOW : natural := 3;
     constant C_CYAN   : natural := 4;
     constant C_GREEN  : natural := 5;
+    constant C_RED    : natural := 6;
+    constant C_DIM    : natural := 7;
     type t_palette is array (0 to 7) of std_logic_vector(15 downto 0);
     constant PALETTE : t_palette := (
-        x"0000", x"4208", x"FFFF", x"FFE0", x"07FF", x"07E0", x"0000", x"0000");
+        x"0000", x"4208", x"FFFF", x"FFE0", x"07FF", x"07E0", x"F800", x"18C3");
 
     type t_chars  is array (0 to COLS * ROWS - 1) of t_char;
     type t_colors is array (0 to COLS * ROWS - 1) of natural range 0 to 7;
@@ -135,6 +143,12 @@ architecture rtl of trig_screen is
     signal cx_r       : natural range 0 to 7 := 0;
     signal gy_valid   : std_logic := '0';
     signal col_r      : natural range 0 to 7 := 0;
+    -- SQI+ bar (bottom pixel row)
+    signal bar_row_r  : std_logic := '0';
+    signal x_r        : unsigned(6 downto 0) := (others => '0');
+    signal bar_end    : unsigned(6 downto 0) := (others => '0');   -- 3 * sqi_last
+    signal mark_x     : unsigned(6 downto 0) := (others => '0');   -- 3 * sqi_min
+    signal bar_col    : natural range 0 to 7 := C_RED;
 begin
     assert ch('0') = 0 and ch('9') = 9 and ch('A') = 10 and ch('F') = 15
         report "font order changed: hex_char assumes 0-9 A-F at codes 0..15" severity failure;
@@ -219,9 +233,25 @@ begin
             end if;
             cx_r  <= m.cx;
             col_r <= scr_col(idx);
+            bar_row_r <= '1' when px_y = 63 and px_x < 96 else '0';
+            x_r   <= px_x;
+            bar_end <= resize(sqi_last, 7) + resize(sqi_last & '0', 7);   -- 3 * sqi
+            mark_x  <= resize(sqi_min, 7) + resize(sqi_min & '0', 7);
+            if sqi_last >= 24 then bar_col <= C_GREEN;
+            elsif sqi_last >= 12 then bar_col <= C_YELLOW;
+            else bar_col <= C_RED;
+            end if;
 
             if cx_r < 5 and gy_valid = '1' and glyph_row(4 - cx_r) = '1' then
                 px_rgb <= PALETTE(col_r);
+            elsif bar_row_r = '1' then
+                if x_r = mark_x or x_r = mark_x + 1 then
+                    px_rgb <= PALETTE(C_WHITE);
+                elsif x_r < bar_end then
+                    px_rgb <= PALETTE(bar_col);
+                else
+                    px_rgb <= PALETTE(C_DIM);
+                end if;
             else
                 px_rgb <= PALETTE(C_OFF);
             end if;

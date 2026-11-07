@@ -27,12 +27,15 @@ dump() {    # $1 = testbench name
         vcd) echo "--vcd=sim/$1.vcd" ;;
     esac
 }
-rtl="rtl/t1s_pkg.vhd rtl/dme_rx.vhd rtl/t1s_pcs_rx.vhd rtl/plca_track.vhd rtl/pulse_stretch.vhd \
+rtl="rtl/t1s_pkg.vhd rtl/oversample_in.vhd rtl/edge_time.vhd rtl/sqi_calc.vhd rtl/clk_gen.vhd rtl/t1s_sqi.vhd rtl/dme_rx.vhd rtl/t1s_pcs_rx.vhd rtl/plca_track.vhd rtl/pulse_stretch.vhd \
      rtl/seg7.vhd rtl/t1s_monitor.vhd rtl/oled_font_pkg.vhd rtl/bcd_rate.vhd rtl/trig_screen.vhd \
      rtl/oled_ssd1331.vhd rtl/oled_status.vhd rtl/top.vhd"
+ghdl -a --std=08 --workdir="$work" --work=unisim ../ci/unisim_stub.vhd   # vendor primitive stand-ins
 # shellcheck disable=SC2086
-ghdl -a --std=08 --workdir="$work" $rtl sim/tb_top.vhd sim/tb_oled.vhd
-ghdl --elab-run --std=08 --workdir="$work" tb_top --ieee-asserts=disable-at-0 --assert-level=failure \
+ghdl -a --std=08 --workdir="$work" -P"$work" $rtl sim/tb_top.vhd sim/tb_oled.vhd sim/tb_sqi.vhd
+ghdl --elab-run --std=08 --workdir="$work" -P"$work" tb_top --ieee-asserts=disable-at-0 --assert-level=failure \
      $(dump tb_top) "${args[@]}"
-ghdl --elab-run --std=08 --workdir="$work" tb_oled --ieee-asserts=disable-at-0 --assert-level=failure \
+ghdl --elab-run --std=08 --workdir="$work" -P"$work" tb_sqi --ieee-asserts=disable-at-0 --assert-level=failure \
+     $(dump tb_sqi) "${args[@]}"
+ghdl --elab-run --std=08 --workdir="$work" -P"$work" tb_oled --ieee-asserts=disable-at-0 --assert-level=failure \
      -gPPM_FILE=sim/oled_frame.ppm $(dump tb_oled) "${args[@]}"
