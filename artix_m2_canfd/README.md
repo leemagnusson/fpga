@@ -13,15 +13,15 @@ python3 gen/build.py          # regenerates *.kicad_sch, *.kicad_pcb, lib/, bom.
 
 | Block | Part | Notes |
 |---|---|---|
-| FPGA | XC7A50T-2CSG325I | 15 x 15 mm, 0.8 mm BGA, 4 GTP transceivers. XC7A35T and XC7A100T in CSG325 are drop-in |
+| FPGA | XC7A50T-2CSG325I | 15 x 15 mm, 0.8 mm BGA, 4 GTP transceivers. The XC7A35T (and smaller) in CSG325 is a drop-in; the 75T and 100T are not offered in CSG325 (DS180 table 5), and only CSG325 has GTPs and fits the 22 mm card |
 | Host interface | M.2 2280 key M card edge | PCIe x4 to GTP bank 216, REFCLK AC-coupled to MGTREFCLK0, PERST# to an I/O, CLKREQ# tied low |
-| CAN FD | 4 x MCP2562FD (DFN-8) | 8 Mbit/s, 5 V supply with 3.3 V I/O, ESD diode and optional 120 ohm termination (DNP) per bus |
+| CAN FD | 4 x MCP2542FD (DFN-8; MCP2562FD, MCP2558FD and TI TCAN1462V are pin-compatible) | 8 Mbit/s, 5 V supply with 3.3 V I/O, ESD diode and optional 120 ohm termination (DNP) per bus |
 | CAN connectors | 2 x Hirose DF52-6S-0.8H | 1.5 mm high, at the far end either side of the mount notch; each carries two buses as CANH, CANL, GND |
 | Configuration | W25Q128JV (WSON-8), QSPI x4, M[2:0] = 001 | Tag-Connect TC2050 pads for JTAG, no connector |
 | Clock | 100 MHz 3.3 V oscillator (ECS-2520MV) on an MRCC pin | 200 MHz LVDS not needed; the FPGA design's clock wizard takes 100 MHz |
 | VCCINT/VCCBRAM 1.0 V | TPS62823 buck, 3 A | first rail up |
 | VCCAUX 1.8 V | TLV62569 buck, 2 A | enabled by the 1.0 V power-good |
-| MGTAVCC 1.0 V, MGTAVTT 1.2 V | TLV75510 / TLV75512 LDOs from 1.8 V | low noise for the transceivers |
+| MGTAVCC 1.0 V, MGTAVTT 1.2 V | TLV75710 / TLV75512 LDOs from 1.8 V (TLV755xP and TLV757xP share a pinout) | low noise for the transceivers |
 | VCCO 3.3 V | TPS22918 load switch from the M.2 3.3 V | enabled ~10 ms after 1.8 V, slew limited: gives the recommended VCCINT, VCCAUX, VCCO order |
 | 5 V (CAN) | TPS61023 boost from 3.3 V | enabled with the 3.3 V rail |
 | LEDs | 4 user (bank 34) + power | active low, 0402 |
@@ -104,7 +104,9 @@ beyond their planes, and the FPGA's signal balls are left to the router.
 After the autorouter, re-route the eight PCIe pairs and REFCLK by hand as
 coupled pairs: Freerouting routes each net on its own.
 
-## Fabrication and assembly (PCBWay)
+## Fabrication and assembly
+
+### PCBWay
 
 ```sh
 python3 gen/pcbway.py            # build/pcbway/artix_m2_canfd.zip: gerbers, drills, IPC-356 netlist,
@@ -131,6 +133,25 @@ lines are marked, and the card-edge and Tag-Connect pads are left out. The
 notes file in the zip lists the stackup, 0.8 mm thickness, ENIG with hard
 gold and a bevel on the fingers, and the 0.1 mm track/clearance.
 
+### JLCPCB
+
+```sh
+python3 gen/jlcpcb.py --lookup --qty 5   # build/jlcpcb/artix_m2_canfd.zip (gerbers, drills) plus
+                                         #   artix_m2_canfd_bom.csv and _cpl.csv in JLCPCB's columns;
+                                         #   refreshes gen/data/lcsc.json (MPN -> LCSC code, stock, price)
+                                         #   and prints the parts cost per board for 5 boards
+python3 gen/jlcpcb.py --open             # ... and open the JLCPCB quote page
+```
+
+JLCPCB has no upload API, so the quote page is filled by hand: drag the zip
+in, pick the options the script prints (6 layers, 0.8 mm, ENIG, gold fingers
+with the chamfer, tented vias), turn on assembly for both sides and upload
+the BOM and CPL at the parts step. Parts are matched by the "LCSC Part #"
+column from `gen/data/lcsc.json`; a record marked `"manual": true` there
+overrides the search (the ECS oscillator is not stocked at JLCPCB, so it maps
+to an HCI 2520 equivalent). Check the rotation of the ICs, LEDs and diodes
+in JLCPCB's placement preview before paying.
+
 ## Files
 
 - `gen/design.py`: the circuit as parts, pins and nets, with datasheet pin
@@ -140,6 +161,7 @@ gold and a bevel on the fingers, and the 0.1 mm track/clearance.
 - `gen/symbols.py`, `gen/schematic.py`, `gen/pcb.py`: writers for the
   symbol library, the schematic sheets and the board (zones, planes, placement).
 - `gen/pcbway.py`: fabrication/assembly package and upload for PCBWay.
+- `gen/jlcpcb.py`: gerbers, BOM and pick-and-place for JLCPCB, with LCSC part lookup (`gen/data/lcsc.json`).
 - `gen/escape.py`, `gen/fanout.py`, `gen/route.py`: BGA escapes, plane fan-out and the
   Freerouting round trip.
 - `lib/`: generated symbol and footprint libraries (project-local tables
@@ -203,8 +225,9 @@ Review list, most important first:
    DF52-6S-0.8H(21) drawing before ordering.
 4. **Oscillator**: ECS-2520MV pad numbering is counter-clockwise from the
    chamfered corner; the footprint follows the datasheet land pattern.
-   SiTime SiT8008 in 2520 is a drop-in if ECS is out of stock.
-5. **MCP2562FD DFN land pattern** is generic 3 x 3 mm 0.65 mm pitch; check
+   The AN/BN/CN suffix is only the stability grade (±100/50/25 ppm); any
+   of them, or a SiTime SiT8008 in 2520, is a drop-in if one is out of stock.
+5. **MCP2542FD DFN land pattern** is generic 3 x 3 mm 0.65 mm pitch; check
    against the Microchip drawing.
 6. **Height**: everything on top is under 1.5 mm (FPGA 1.5 mm, DFN/WSON
    0.8-1.0 mm, SOT-23 1.3 mm, inductors 1.0 mm). The bottom carries 0402s,

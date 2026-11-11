@@ -126,7 +126,7 @@ def drill_and_netlist(board, out_dir, name):
 
 MANUFACTURERS = [("GRM", "Murata"), ("BLM", "Murata"), ("RC0402", "Yageo"), ("TPS", "Texas Instruments"),
                  ("TLV", "Texas Instruments"), ("MCP", "Microchip"), ("W25Q", "Winbond"), ("ECS", "ECS"),
-                 ("19-217", "Everlight"), ("PESD", "Nexperia"), ("TFM", "TDK"), ("DF52", "Hirose"), ("XC7A", "AMD")]
+                 ("19-217", "Everlight"), ("16-213", "Everlight"), ("PESD", "Nexperia"), ("TFM", "TDK"), ("DF52", "Hirose"), ("XC7A", "AMD")]
 
 def manufacturer(mpn):
     return next((m for prefix, m in MANUFACTURERS if mpn.startswith(prefix)), "")

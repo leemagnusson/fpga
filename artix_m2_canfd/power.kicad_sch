@@ -117,7 +117,7 @@
 				(property "Value" "TLV755P" (at -7.62 -6.35 0) (effects (font (size 1.27 1.27))))
 				(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 				(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-				(property "Description" "500 mA LDO, 1.0 V MGTAVCC" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
+				(property "Description" "1 A LDO, 1.0 V MGTAVCC (TLV75510PDBVR pin-compatible)" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 				(symbol "TLV755P_1_1"
 					(rectangle (start -7.62 5.08) (end 7.62 -5.08) (stroke (width 0.254) (type default)) (fill (type background)))
 					(pin passive line (at -10.16 2.54 0) (length 2.54) (name "IN" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
@@ -219,12 +219,12 @@
 		(end 111.36 182.48)
 		(stroke (width 0.1524) (type dash))
 		(fill (type none))
-		(uuid "defc51f6-9275-51bc-b872-a5ec78bab748")
+		(uuid "b714ce3b-4bac-53c9-b59d-2a683e6a9858")
 	)
-	(text "U5  TLV75510PDBVR"
+	(text "U5  TLV75710PDBVR"
 		(at 26.27 143.78 0)
 		(effects (font (size 1.5 1.5) bold) (justify left bottom))
-		(uuid "68d20bec-0c9b-533f-9c86-915a89f395a4")
+		(uuid "9d06acd1-c2ae-5e2b-9f46-19b2e16e044e")
 	)
 	(rectangle
 		(start 25 190.1)
@@ -1102,7 +1102,7 @@
 			(at 49.53 148.59 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Value" "TLV75510PDBVR"
+		(property "Value" "TLV75710PDBVR"
 			(at 49.53 161.29 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
@@ -1114,11 +1114,11 @@
 			(at 57.15 154.94 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "500 mA LDO, 1.0 V MGTAVCC"
+		(property "Description" "1 A LDO, 1.0 V MGTAVCC (TLV75510PDBVR pin-compatible)"
 			(at 57.15 154.94 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "TLV75510PDBVR"
+		(property "MPN" "TLV75710PDBVR"
 			(at 57.15 154.94 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -1788,7 +1788,7 @@
 			(at 234.95 67.31 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 234.95 67.31 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)

@@ -298,7 +298,7 @@
 				)
 			)
 		)
-		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)"
+		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -3965,7 +3965,7 @@
 				)
 			)
 		)
-		(property "Value" "MCP2562FD"
+		(property "Value" "MCP2542FD"
 			(at 0 3 0)
 			(layer "F.Fab")
 			(uuid "91249632-dfb8-5df1-a80f-1037d00b4d20")
@@ -4000,7 +4000,7 @@
 				)
 			)
 		)
-		(property "MPN" "MCP2562FDT-E/MF"
+		(property "MPN" "MCP2542FD-E/MF"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -5764,7 +5764,7 @@
 				)
 			)
 		)
-		(property "Value" "MCP2562FD"
+		(property "Value" "MCP2542FD"
 			(at 0 3 0)
 			(layer "F.Fab")
 			(uuid "41a9e6a0-1943-5a04-995d-e82fc84723c9")
@@ -5799,7 +5799,7 @@
 				)
 			)
 		)
-		(property "MPN" "MCP2562FDT-E/MF"
+		(property "MPN" "MCP2542FD-E/MF"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -5958,7 +5958,7 @@
 				)
 			)
 		)
-		(property "Value" "MCP2562FD"
+		(property "Value" "MCP2542FD"
 			(at 0 3 0)
 			(layer "F.Fab")
 			(uuid "2166d58b-7734-5aa2-8aba-696d70fe19da")
@@ -5993,7 +5993,7 @@
 				)
 			)
 		)
-		(property "MPN" "MCP2562FDT-E/MF"
+		(property "MPN" "MCP2542FD-E/MF"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -6700,7 +6700,7 @@
 				)
 			)
 		)
-		(property "Value" "TLV75510PDBVR"
+		(property "Value" "TLV75710PDBVR"
 			(at 0 3 0)
 			(layer "F.Fab")
 			(uuid "1ddbf028-5ef2-5666-8a1b-356064dea317")
@@ -6723,7 +6723,7 @@
 				)
 			)
 		)
-		(property "Description" "500 mA LDO, 1.0 V MGTAVCC"
+		(property "Description" "1 A LDO, 1.0 V MGTAVCC (TLV75510PDBVR pin-compatible)"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -6735,7 +6735,7 @@
 				)
 			)
 		)
-		(property "MPN" "TLV75510PDBVR"
+		(property "MPN" "TLV75710PDBVR"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -6916,7 +6916,7 @@
 				)
 			)
 		)
-		(property "MPN" "ECS-2520MV-100-CN-TR"
+		(property "MPN" "ECS-2520MV-100-AN-TR"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -10119,7 +10119,7 @@
 				)
 			)
 		)
-		(property "Value" "MCP2562FD"
+		(property "Value" "MCP2542FD"
 			(at 0 3 0)
 			(layer "F.Fab")
 			(uuid "ef34e678-62cc-5686-a0a4-3eb6455b80c7")
@@ -10154,7 +10154,7 @@
 				)
 			)
 		)
-		(property "MPN" "MCP2562FDT-E/MF"
+		(property "MPN" "MCP2542FD-E/MF"
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -12168,7 +12168,7 @@
 				)
 			)
 		)
-		(property "MPN" "PESD2CANUX"
+		(property "MPN" "PESD2CAN,215"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -13177,7 +13177,7 @@
 				)
 			)
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 0 0 180)
 			(layer "B.Fab")
 			(hide yes)
@@ -13607,7 +13607,7 @@
 				)
 			)
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 0 0 180)
 			(layer "B.Fab")
 			(hide yes)
@@ -13897,7 +13897,7 @@
 				)
 			)
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 0 0 180)
 			(layer "B.Fab")
 			(hide yes)
@@ -14327,7 +14327,7 @@
 				)
 			)
 		)
-		(property "MPN" "PESD2CANUX"
+		(property "MPN" "PESD2CAN,215"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -14496,7 +14496,7 @@
 				)
 			)
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -16606,7 +16606,7 @@
 				)
 			)
 		)
-		(property "MPN" "PESD2CANUX"
+		(property "MPN" "PESD2CAN,215"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -17615,7 +17615,7 @@
 				)
 			)
 		)
-		(property "MPN" "PESD2CANUX"
+		(property "MPN" "PESD2CAN,215"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -20444,7 +20444,7 @@
 				)
 			)
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 0 0 180)
 			(layer "B.Fab")
 			(hide yes)

@@ -142,7 +142,7 @@
 				(property "Value" "XC7A50T-CSG325" (at -19.05 -17.78 0) (effects (font (size 1.27 1.27))))
 				(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 				(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-				(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
+				(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 				(symbol "XC7A50T-CSG325_1_1"
 					(rectangle (start -19.05 16.51) (end 19.05 -16.51) (stroke (width 0.254) (type default)) (fill (type background)))
 					(pin passive line (at -21.59 13.97 0) (length 2.54) (name "MGTPRXN0_216" (effects (font (size 1.27 1.27)))) (number "E3" (effects (font (size 1.27 1.27)))))
@@ -581,7 +581,7 @@
 			(at 66.04 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)"
+		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)"
 			(at 66.04 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -759,7 +759,7 @@
 			(at 154.94 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)"
+		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)"
 			(at 154.94 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -909,7 +909,7 @@
 			(at 248.92 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)"
+		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)"
 			(at 248.92 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -1157,7 +1157,7 @@
 			(at 335.28 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)"
+		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)"
 			(at 335.28 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -1368,7 +1368,7 @@
 			(at 406.4 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)"
+		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)"
 			(at 406.4 95.25 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -2168,7 +2168,7 @@
 			(at 491.49 34.29 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "ECS-2520MV-100-CN-TR"
+		(property "MPN" "ECS-2520MV-100-AN-TR"
 			(at 491.49 34.29 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -2287,7 +2287,7 @@
 			(at 481.33 80.01 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 481.33 80.01 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -2395,7 +2395,7 @@
 			(at 562.61 80.01 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 562.61 80.01 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -2503,7 +2503,7 @@
 			(at 481.33 107.95 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 481.33 107.95 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -2611,7 +2611,7 @@
 			(at 562.61 107.95 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "19-217/GHC-YR1S2/3T"
+		(property "MPN" "16-213/GHC-YR1S1/3T"
 			(at 562.61 107.95 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
