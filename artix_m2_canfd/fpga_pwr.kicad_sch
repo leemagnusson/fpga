@@ -3130,7 +3130,7 @@
 			(at 234.95 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "4u7"
+		(property "Value" "100n"
 			(at 234.95 174.625 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3142,11 +3142,11 @@
 			(at 234.95 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Capacitor 4u7  0402"
+		(property "Description" "Capacitor 100n  0402"
 			(at 234.95 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "GRM155R60J475ME47D"
+		(property "MPN" "GRM155R71C104KA88D"
 			(at 234.95 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -3184,7 +3184,7 @@
 			(at 275.59 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "4u7"
+		(property "Value" "100n"
 			(at 275.59 174.625 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3196,11 +3196,11 @@
 			(at 275.59 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Capacitor 4u7  0402"
+		(property "Description" "Capacitor 100n  0402"
 			(at 275.59 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "GRM155R60J475ME47D"
+		(property "MPN" "GRM155R71C104KA88D"
 			(at 275.59 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -3292,7 +3292,7 @@
 			(at 356.87 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "100n"
+		(property "Value" "4u7"
 			(at 356.87 174.625 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3304,11 +3304,11 @@
 			(at 356.87 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Capacitor 100n  0402"
+		(property "Description" "Capacitor 4u7  0402"
 			(at 356.87 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "GRM155R71C104KA88D"
+		(property "MPN" "GRM155R60J475ME47D"
 			(at 356.87 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -3346,7 +3346,7 @@
 			(at 234.95 180.975 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "100n"
+		(property "Value" "4u7"
 			(at 234.95 187.325 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3358,11 +3358,11 @@
 			(at 234.95 184.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Capacitor 100n  0402"
+		(property "Description" "Capacitor 4u7  0402"
 			(at 234.95 184.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "GRM155R71C104KA88D"
+		(property "MPN" "GRM155R60J475ME47D"
 			(at 234.95 184.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)

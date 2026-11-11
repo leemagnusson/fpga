@@ -223,8 +223,11 @@ ZONES = {
     "decap_3v3":  (-8.0, -2.9, 31.9, 44.0, "B"),
     "decap_1v0":  (-2.3, 2.3, 31.9, 44.0, "B"),   # inside the 1.0 V strip with room for the vias
     "decap_1v8":  (3.4, 8.0, 31.9, 44.0, "B"),      # clear of the 1.0 V strip edge so the vias land on 1.8 V copper
-    "decap_avcc": (0.5, 4.0, 8.0, 16.0, "B"),
-    "decap_avtt": (4.0, 7.3, 8.0, 16.0, "B"),
+    # transceiver-rail decoupling: AVCC on the back west of the PCIe capacitors, AVTT on the top
+    # in the east corridor just below the GTP corner; both over their In2 plane blocks (PLANES).
+    # The back between x -5 and 8.6 at y 8-16 stays free for REFCLK and the transmit pairs' B.Cu runs.
+    "decap_avcc": (-8.0, -5.1, 6.6, 16.0, "B"),   # west of REFCLK's B.Cu run and capacitor vias (x > -4.9)
+    "decap_avtt": (7.7, 10.6, 7.6, 15.9, "F"),
     # back-side zones for parts that are not placed relative to an IC
     "power_b":    (-8.0, 8.0, 56.0, 62.5, "B"),
     "can_b":      (-8.0, 8.0, 62.5, 76.5, "B"),      # the headers above it are top-side only
@@ -352,7 +355,7 @@ def _groups(w, design):
 PLANES = [
     ("GND",       "In1.Cu", 0, -11, 11,  0, 80),
     ("GND",       "In4.Cu", 0, -11, 11,  0, 80),
-    ("VCC3V3",    "In2.Cu", 0, -11, 11,  2.5, 80),       # VCCO balls are all around the package
+    ("VCC3V3",    "In2.Cu", 0, -11, 11, 16.3, 80),       # VCCO balls are all around the package; the transceiver rails have In2 below it
     ("VCC1V8",    "In3.Cu", 0, -11, 11, 10, 62.3),
     ("VCC1V0",    "In3.Cu", 1, -2.6, 2.6, 20.6, 46.5),   # VCCINT/VCCBRAM core balls, strip up to the buck ...
     ("VCC1V0",    "In3.Cu", 2, -3.2, 0.2, 46.0, 51.5),   # ... ending under its output capacitors, so the 1.8 V plane
@@ -360,20 +363,25 @@ PLANES = [
     ("VIN_3V3",   "In3.Cu", 1, -11, 11,  0, 9.5),        # under the connector fingers
     ("VIN_3V3",   "In3.Cu", 2,  7.6, 11,  9.0, 62),      # ... and a strip up to the regulators (overlaps the above so they join;
                                                          #     different priority so DRC does not flag the overlap)
+    ("VIN_3V3",   "In3.Cu", 4, -11, -9.4,  9.0, 62.3),   # ... a strip up the west edge too: it feeds the two islands below
+                                                         #     (the 1.0 V buck and the load switch) in copper, not through tracks
     ("VIN_3V3",   "In3.Cu", 3, -11, -3.0, 46.4, 50.2),   # 3.3 V input under the 1.0 V buck and its input capacitor
     ("VIN_3V3",   "In3.Cu", 3,  3.0, 11,  46.4, 50.5),   # ... under the 1.8 V buck's input
     ("VIN_3V3",   "In3.Cu", 3,  4.5, 11,  56.0, 62.3),   # ... under the boost's input capacitor and inductor
     ("VIN_3V3",   "In3.Cu", 3, -11, -2.5, 57.0, 62.3),   # ... under the load switch input
     ("VCC5V_CAN", "In3.Cu", 1, -11, 11, 62.3, 80),
     ("VCC5V_CAN", "In3.Cu", 3,  0.5, 4.0, 56.0, 62.5),   # down to the boost output and its capacitor
-    # Islands below the package for the transceiver-rail decoupling (zones
-    # decap_avcc/avtt). They stop at y 16.1 so the BGA escape cells one pitch
-    # outside the package (y 16.4) stay free; the router joins each island to
-    # its corner island with a short link (hand-widen those two links).
-    ("MGTAVCC",   "In3.Cu", 4,  0.5, 4.0,  8.0, 16.1),
-    ("MGTAVTT",   "In3.Cu", 5,  4.0, 7.3,  8.0, 16.1),
-    ("MGTAVCC",   "In3.Cu", 2,  2.8, 5.0, 17.2, 21.8),   # GTP corner, FPGA rotated 180
-    ("MGTAVTT",   "In3.Cu", 3,  4.8, 7.4, 16.6, 22.6),
+    # Transceiver rails on In2 (the 3.3 V plane keeps everything inside x +/-8.6): a strip
+    # along each long edge from the LDO (y ~55) down to a block below the package that
+    # carries the decoupling, plus the corner island under the GTP balls (FPGA rotated 180).
+    # The escape via row at y 16.4 separates block and island; LINKS below joins them.
+    ("MGTAVCC",   "In2.Cu", 4, -11.0, -8.6,  8.0, 56.5),   # west strip (same-net rectangles overlap: distinct priorities keep DRC quiet)
+    ("MGTAVCC",   "In2.Cu", 5, -11.0,  4.0,  2.5, 16.1),   # block below the package (AVCC decoupling on the back)
+    ("MGTAVCC",   "In2.Cu", 6,   2.8,  5.0, 17.2, 21.8),   # GTP corner island
+    ("MGTAVTT",   "In2.Cu", 7,   8.6, 11.0,  8.0, 56.5),   # east strip
+    ("MGTAVTT",   "In2.Cu", 8,   4.2, 11.0,  2.5, 16.1),   # block below the package (AVTT decoupling beside the east edge)
+    ("MGTAVTT",   "In2.Cu", 9,   4.8,  7.4, 16.6, 22.6),   # GTP corner island
+    ("MGTAVTT",   "In2.Cu", 10,  7.3,  9.4, 16.0, 17.5),   # neck round the east end of the escape via row: joins island and block
 ]
 
 # Fixed links (design coordinates) that the fan-out adds and locks: the two
@@ -382,10 +390,12 @@ PLANES = [
 # to 6.8), so a short 0.1 mm B.Cu track threads between those vias instead;
 # placed right after the escapes so the plane fan-out keeps their cells free.
 # (net, [("via", x, y) | ("track", "B"|"F", width, [(x, y), ...])])
-LINKS = [
-    ("MGTAVCC", [("via", 3.9, 15.85), ("track", "B", 0.1, [(3.9, 15.85), (4.0, 16.05), (4.0, 17.6), (4.8, 17.6)]), ("via", 4.8, 17.6)]),
-    ("MGTAVTT", [("via", 6.4, 16.0), ("track", "B", 0.1, [(6.4, 16.0), (6.4, 16.8)]), ("via", 6.4, 16.8)]),
-]
+LINKS = []      # none now: gen/router.py joins each corner island to the rest of its rail (ISLANDS)
+
+# Corner islands of the transceiver rails (design coordinates x0, x1, y0, y1): copper under
+# the GTP balls that the escape via row cuts off from the rest of the rail's plane. The
+# router treats everything on an island as one group and links it to the main part.
+ISLANDS = {"MGTAVCC": (2.8, 5.0, 17.2, 21.8), "MGTAVTT": (4.8, 7.4, 16.6, 22.6)}
 
 def _zones(w, nets):
     for net, layer, prio, x0, x1, y0, y1 in PLANES:
@@ -442,7 +452,7 @@ def write_pcb(path, design, libdir, libname):
             fp_texts[fpname] = _load_footprint(libdir, fpname)
     overflow = pack(design, fp_texts)
     if overflow:
-        print("WARNING parts overflow their zone:", overflow)
+        raise SystemExit(f"parts overflow their zone (they would land on other parts): {overflow}")
     nets = {}
     for i, n in enumerate(design.nets(), start=1):
         nets[n] = i

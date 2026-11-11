@@ -16,12 +16,24 @@ cell centre without disturbing the grid, so the plane fan-out that follows is
 unconstrained by the escapes (it just has to avoid the cells the tracks pass
 through, which the occupancy model enforces). Deep escapes are planned with
 retries (failed balls go first) before anything is committed to the board."""
-import re
+import os, re
 from collections import deque
 import pcbnew
 
 ROWS = "ABCDEFGHJKLMNPRTUV"
 W = 0.1                                   # escape track width
+
+# Preferred exit columns on the south (connector) side for the receive pairs and the
+# reference clock, as (P column, N column) in ball-column numbers (column 1 is the
+# east edge, so a higher number is further west), P west of N like the M.2 fingers.
+# The receive pairs come out in finger order (lane 0 west ... lane 3 east) and run
+# straight to the connector on F.Cu: G3/G4 goes round the others to columns 12/11,
+# C3/C4 to 6/5, A3/A4 (bottom row) leaves at 4/3 and E3/E4 at 2/1. That leaves columns
+# 7-10 for the four balls shut in by lane 0's path: REFCLK (D5/D6), CCLK (E8) and TCK (F8).
+PAIR_EXITS = {"PCIE_RX0": (12, 11), "PCIE_RX1": (6, 5), "PCIE_RX3": (2, 1)}
+PAIR_REFCLK = False       # REFCLK (100 MHz) is escaped ball by ball and routed as two matched tracks
+STRICT_EXITS = True        # only the preferred exits for those pairs (relaxed if that cannot be planned)
+DEBUG = bool(os.environ.get("ESCAPE_DEBUG"))
 
 def _is_pcie(name):
     return name.startswith("PCIE_RX") or name.startswith("PCIE_REFCLK")
@@ -265,6 +277,14 @@ def escape_bga(board, fp, occ, plane_nets):
         m = re.match(r"(PCIE_(?:RX\d|REFCLK))_([PN])$", name)
         return (m.group(1), m.group(2)) if m else None
 
+    def exit_penalty(name, ea, eb):
+        """Distance of a candidate exit from the preferred one (PAIR_EXITS): the pairs leave the
+        bottom row in M.2 finger order so the router can take them straight to the connector."""
+        pref = PAIR_EXITS.get(name)
+        if not pref or side(ea) != "S" or side(eb) != "S":
+            return 50 if pref else 0
+        return abs(ea[0] - pref[0]) + abs(eb[0] - pref[1])
+
     def exit_pairs():
         s_r = 0 if south_is_r0 else 19
         e_c = 0 if east_is_c0 else 19
@@ -280,15 +300,26 @@ def escape_bga(board, fp, occ, plane_nets):
                 out.append((2, (cc, r), (cc, r + 1))); out.append((2, (cc, r + 1), (cc, r)))
         return out
 
+    def can_plan(order, nn, ee):
+        """True if the other balls can still all escape (tried in a few orders, failed ones first)."""
+        m_i, m_s = len(occ.items), len(occ.segs)
+        failed = []
+        for attempt in range(6):
+            _, failed = plan(order, nn, ee)
+            del occ.items[m_i:]; del occ.segs[m_s:]
+            if not failed:
+                return True, []
+            front = [(c, r, pad) for c, r, pad, _ in failed]
+            order = front + [t for t in order if t not in front]
+        return False, failed
+
     def plan_pairs(pair_list, node_net, edge_net, others):
         """Returns the list of items or None. Mutates node_net/edge_net and occ on success.
         At the leaves the other signal balls of the corner (`others`) must still find
         an escape, otherwise the candidate is rejected and the search backtracks."""
         if not pair_list:
-            n_i, n_s = len(occ.items), len(occ.segs)
-            _, failed = plan(others, node_net, edge_net)
-            del occ.items[n_i:]; del occ.segs[n_s:]
-            return [] if not failed else None
+            ok, _ = can_plan(others, node_net, edge_net)
+            return [] if ok else None
         (ca, ra, pa), (cb, rb, pb) = pair_list[0]
         na, nb = pa.GetNetCode(), pb.GetNetCode()
         tried = []
@@ -320,7 +351,7 @@ def escape_bga(board, fp, occ, plane_nets):
                             path_b, _ = bfs(corners_b, nb, lambda n: n == eb, nn, ee)
                             if not path_b:
                                 continue
-                            cost = (rank, len(path_a) + len(path_b))
+                            cost = (rank, exit_penalty(pa.GetNetname()[:-2], ea, eb), len(path_a) + len(path_b))
                             if best is None or cost < best[0]:
                                 best = (cost, ka, ga, path_a, kb, gb, path_b)
                     del occ.items[n_i:]; del occ.segs[n_s:]
@@ -330,8 +361,14 @@ def escape_bga(board, fp, occ, plane_nets):
         # try candidates best-first, recursing into the remaining pairs
         per_rank = {}
         for t in sorted(tried, key=lambda t: t[0]):
-            per_rank.setdefault(t[0][0], []).append(t)
-        shortlist = [t for rank in sorted(per_rank) for t in per_rank[rank][:6]]
+            per_rank.setdefault(t[0][:2], []).append(t)
+        shortlist = [t for key in sorted(per_rank) for t in per_rank[key][:6]]
+        pname = pa.GetNetname()[:-2]
+        if STRICT_EXITS and pname in PAIR_EXITS:
+            strict = [t for t in shortlist if t[0][1] == 0]
+            shortlist = strict or shortlist
+        if DEBUG:
+            print(f"    escape {pname}: {len(tried)} candidates, shortlist {[t[0] for t in shortlist]}")
         for cost, ka, ga, path_a, kb, gb, path_b in shortlist:
             nn, ee = dict(node_net), dict(edge_net)
             n_i, n_s = len(occ.items), len(occ.segs)
@@ -340,16 +377,18 @@ def escape_bga(board, fp, occ, plane_nets):
             items_b = build_items(cb, rb, pb, kb, gb, path_b, None, nn, ee)
             occupy(items_b)
             # prune early: the other corner signals must still be able to leave
-            m_i, m_s = len(occ.items), len(occ.segs)
-            _, failed = plan(others, nn, ee)
-            del occ.items[m_i:]; del occ.segs[m_s:]
-            if failed:
+            ok, failed = can_plan(others, nn, ee)
+            if not ok:
+                if DEBUG:
+                    print(f"      {pname} {cost}: other balls cannot escape: {[f[2].GetName() for f in failed]}")
                 del occ.items[n_i:]; del occ.segs[n_s:]
                 continue
             rest = plan_pairs(pair_list[1:], nn, ee, others)
             if rest is not None:
                 node_net.clear(); node_net.update(nn); edge_net.clear(); edge_net.update(ee)
                 return items + items_b + rest
+            if DEBUG:
+                print(f"      {pname} {cost}: later pairs failed")
             del occ.items[n_i:]; del occ.segs[n_s:]
         return None
 
@@ -367,9 +406,11 @@ def escape_bga(board, fp, occ, plane_nets):
         if k:
             pairs.setdefault(k[0], {})[k[1]] = t
     pair_list = [(v["P"], v["N"]) for name, v in pairs.items() if len(v) == 2 and name != "PCIE_REFCLK"]
-    pair_list.sort(key=lambda ab: -dist_out(ab[0][0], ab[0][1], ab[0][2].GetNetname()))   # deepest first
-    if "PCIE_REFCLK" in pairs and len(pairs["PCIE_REFCLK"]) == 2:
+    if PAIR_REFCLK and "PCIE_REFCLK" in pairs and len(pairs["PCIE_REFCLK"]) == 2:
         pair_list.append((pairs["PCIE_REFCLK"]["P"], pairs["PCIE_REFCLK"]["N"]))
+    # shallowest first: the exits nest, so an inner pair takes the short way down its own
+    # columns and the deeper ones go around it
+    pair_list.sort(key=lambda ab: dist_out(ab[0][0], ab[0][1], ab[0][2].GetNetname()))
     node_net0, edge_net0 = {}, {}
     in_pairs = {(t[0], t[1]) for ab in pair_list for t in ab}
     cmax = 12 if east_is_c0 else 7; rmax = 10 if south_is_r0 else 9
@@ -377,6 +418,10 @@ def escape_bga(board, fp, occ, plane_nets):
               and t[2].GetNetname() != "MGTRREF"
               and (t[0] <= cmax if east_is_c0 else t[0] >= cmax) and (t[1] <= rmax if south_is_r0 else t[1] >= rmax)]
     pair_items = plan_pairs(pair_list, node_net0, edge_net0, others)
+    if pair_items is None and STRICT_EXITS:
+        globals()["STRICT_EXITS"] = False
+        pair_items = plan_pairs(pair_list, node_net0, edge_net0, others)
+        globals()["STRICT_EXITS"] = True
     if pair_items is None and pair_list and pair_list[-1][0][2].GetNetname().startswith("PCIE_REFCLK"):
         others = others + list(pair_list[-1])                                   # REFCLK falls back to the planner,
         pair_items = plan_pairs(pair_list[:-1], node_net0, edge_net0, others)   # but must stay escapable
@@ -421,6 +466,19 @@ def escape_bga(board, fp, occ, plane_nets):
     stats["B"] = sum(1 for a in best[0] if a[0] == "track" and a[2] == "B")
     stats["vias"] = sum(1 for a in actions if a[0] == "via")
     stats["left"] = [f"{pad.GetName()}[{pad.GetNetname()}] {why}" for c, r, pad, why in best[1]]
+
+    # keep the way out of each pair's bottom-row exit free: the plane fan-out that follows
+    # would otherwise drop a via right between/below the two exit vias
+    ys = Y(0 if south_is_r0 else 19)
+    names = {pad.GetNetCode(): pad.GetNetname() for pad in allp.values()}
+    exits = {}
+    for a in actions:
+        if a[0] == "via" and abs(a[2] - ys) < 1e-3 and pair_key(names.get(a[3], "")):
+            exits.setdefault(pair_key(names[a[3]])[0], []).append(a[1])
+    for name, xs in exits.items():
+        if len(xs) == 2:
+            for d in (0.5, 1.0, 1.5):
+                occ.items.append(((xs[0] + xs[1]) / 2, ys + d, "c", 0.35, 0.0, -1, "*"))
 
     for a in actions:
         if a[0] == "via":

@@ -178,23 +178,23 @@ def polarized_chip(name, body_l, body_w, pad_l, pad_w, pad_gap, desc):
     _model(w, name); w.close(); return name, w.text()
 
 def sot(name, npins_per_side_left, right_pins, pitch, pad_l, pad_w, row_dist, body_l, body_w, desc):
-    """Generic SOT: left pins 1..n (top to bottom), right pins listed (bottom to top)."""
+    """Generic SOT: left pins 1..n (top to bottom); right_pins = [(number, slot), ...] where slot
+    is the row position counted like the left side (0 = top, n-1 = bottom), so a SOT-23-5's pin 4
+    sits opposite pin 3 and pin 5 opposite pin 1 (KiCad's pin-1-top-left convention)."""
     w = W(); _hdr(w, name, desc)
     nL = npins_per_side_left
     y0 = -(nL - 1) * pitch / 2
     for i in range(nL):
         _pad(w, str(i + 1), -row_dist/2, y0 + i * pitch, pad_l, pad_w, name=name)
-    nR = len(right_pins)
-    y0 = (nR - 1) * pitch / 2
-    for i, p in enumerate(right_pins):
-        _pad(w, str(p), row_dist/2, y0 - i * pitch, pad_l, pad_w, name=name)
+    for p, slot in right_pins:
+        _pad(w, str(p), row_dist/2, y0 + slot * pitch, pad_l, pad_w, name=name)
     _rect(w, "F.Fab", -body_w/2, -body_l/2, body_w/2, body_l/2)
     _circle(w, "F.Fab", -body_w/2 + 0.4, -body_l/2 + 0.4, 0.2)
     c = row_dist/2 + pad_l/2 + 0.25
     _rect(w, "F.CrtYd", -c, -body_l/2 - 0.25, c, body_l/2 + 0.25, 0.05)
     _line(w, "F.SilkS", -body_w/2, -body_l/2 - 0.15, body_w/2, -body_l/2 - 0.15, 0.12)
     _line(w, "F.SilkS", -body_w/2, body_l/2 + 0.15, body_w/2, body_l/2 + 0.15, 0.12)
-    _line(w, "F.SilkS", -row_dist/2 - pad_l/2 - 0.3, -body_l/2 - 0.15, -row_dist/2 - pad_l/2 - 0.3, y0 - (nL-1)*pitch + 0.2 if False else -body_l/2 + 0.6, 0.12)
+    _line(w, "F.SilkS", -row_dist/2 - pad_l/2 - 0.3, -body_l/2 - 0.15, -row_dist/2 - pad_l/2 - 0.3, -body_l/2 + 0.6, 0.12)
     _model(w, name); w.close(); return name, w.text()
 
 def dfn(name, n, pitch, pad_l, pad_w, row_dist, body, ep, desc, ep_num=None):
@@ -329,10 +329,10 @@ def all_footprints(fpga_balls):
         chip("L_0806", 2.0, 1.6, 0.9, 1.7, 1.0, "Inductor 2016 (0806 inch), e.g. TDK TFM201610"),
         chip("FB_0402", 1.0, 0.5, 0.6, 0.6, 0.5, "Ferrite bead 0402"),
         polarized_chip("LED_0402", 1.0, 0.5, 0.6, 0.6, 0.5, "LED 0402, pin 1 = cathode"),
-        sot("SOT-23-5", 3, [4, 5], 0.95, 1.0, 0.6, 2.6, 2.9, 1.6, "SOT-23-5 (TI DBV)"),
-        sot("SOT-23-6", 3, [4, 5, 6], 0.95, 1.0, 0.6, 2.6, 2.9, 1.6, "SOT-23-6 (TI DBV)"),
-        sot("SOT-23", 2, [3], 1.9, 1.0, 0.8, 2.4, 2.9, 1.3, "SOT-23 3-pin (pins 1,2 left; 3 right)"),
-        sot("SOT-563", 3, [4, 5, 6], 0.5, 0.7, 0.3, 1.4, 1.6, 1.2, "SOT-563 (TI DRL), 6 pins, 0.5 mm pitch"),
+        sot("SOT-23-5", 3, [(4, 2), (5, 0)], 0.95, 1.1, 0.6, 2.6, 2.9, 1.6, "SOT-23-5 (TI DBV0005A land pattern: 1.1 x 0.6 pads, 0.95 pitch, 2.6 row spacing)"),
+        sot("SOT-23-6", 3, [(4, 2), (5, 1), (6, 0)], 0.95, 1.1, 0.6, 2.6, 2.9, 1.6, "SOT-23-6 (TI DBV0006A land pattern)"),
+        sot("SOT-23", 2, [(3, 0.5)], 1.9, 1.0, 0.8, 2.4, 2.9, 1.3, "SOT-23 3-pin (pins 1,2 left; 3 right, centred)"),
+        sot("SOT-563", 3, [(4, 2), (5, 1), (6, 0)], 0.5, 0.67, 0.3, 1.48, 1.6, 1.2, "SOT-563 (TI DRL0006A land pattern: 0.67 x 0.3 pads, 0.5 pitch, 1.48 row spacing)"),
         dfn("VSON-8_2x1.5mm_P0.5mm", 8, 0.5, 0.6, 0.25, 1.3, (1.5, 2.0), None, "VSON-HR 8 pin 2.0 x 1.5 mm, 0.5 mm pitch, no thermal pad (TI DLC)"),
         dfn("DFN-8_3x3mm_P0.65mm", 8, 0.65, 0.75, 0.35, 2.9, (3.0, 3.0), (1.7, 2.4), "DFN-8 3x3 mm 0.65 mm pitch with exposed pad (Microchip MF)", ep_num=9),
         dfn("WSON-8_6x5mm_P1.27mm", 8, 1.27, 0.9, 0.5, 5.6, (6.0, 5.0), (3.4, 4.0), "WSON-8 6x5 mm 1.27 mm pitch (Winbond PIQ)", ep_num=9),

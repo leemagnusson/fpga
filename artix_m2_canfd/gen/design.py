@@ -130,9 +130,18 @@ def build(pkg_path):
     fpga_net = {}  # ball -> net
     def setnet(ball, net):
         fpga_net[ball] = net
+    # M.2 lane n on GTP channel 3-n (lane reversal; in the FPGA design it is only the LOC
+    # constraint of each lane's GTPE2_CHANNEL). The channels sit north to south on the east
+    # edge of the package while the fingers run west to east, so with this order the transmit
+    # pairs leave the package south-bound and turn west without crossing each other, and the
+    # receive pairs come out of the bottom ball row in finger order (escape.PAIR_EXITS).
+    # The transmit P/N balls are swapped too, so the ring-1 ball (inner escape via, west when
+    # heading south) is P like the P-west/N-east capacitor and finger order; the host's
+    # receiver corrects lane polarity during training (PCIe base spec, lane polarity inversion).
     for i in range(4):
-        setnet(mgt[f"MGTPRXP{i}_216"], f"PCIE_RX{i}_P"); setnet(mgt[f"MGTPRXN{i}_216"], f"PCIE_RX{i}_N")
-        setnet(mgt[f"MGTPTXP{i}_216"], f"PCIE_TX{i}_P"); setnet(mgt[f"MGTPTXN{i}_216"], f"PCIE_TX{i}_N")
+        lane = 3 - i
+        setnet(mgt[f"MGTPRXP{i}_216"], f"PCIE_RX{lane}_P"); setnet(mgt[f"MGTPRXN{i}_216"], f"PCIE_RX{lane}_N")
+        setnet(mgt[f"MGTPTXP{i}_216"], f"PCIE_TX{lane}_N"); setnet(mgt[f"MGTPTXN{i}_216"], f"PCIE_TX{lane}_P")
     setnet(mgt["MGTREFCLK0P_216"], "PCIE_REFCLK_P"); setnet(mgt["MGTREFCLK0N_216"], "PCIE_REFCLK_N")
     setnet(mgt["MGTRREF_216"], "MGTRREF")
     setnet(osc_ball, "CLK100M")
@@ -273,7 +282,13 @@ def build(pkg_path):
     decouple(V18,  "decap_1v8",  [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 1, "GRM155R60J475ME47D"), ("470n", "0402", 2, "GRM155R61A474KE15D")])
     decouple(V3,   "decap_3v3",  [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 4, "GRM155R60J475ME47D"), ("470n", "0402", 4, "GRM155R61A474KE15D")])
     decouple(AVCC, "decap_avcc", [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("100n", "0402", 3, "GRM155R71C104KA88D")])
-    decouple(AVTT, "decap_avtt", [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("100n", "0402", 3, "GRM155R71C104KA88D")])
+    # AVTT: a column on the top along the east edge below the GTP corner, over its In2 block;
+    # the strip x 7.7-9 beside it is the outermost transmit pair's way down to its capacitors
+    # (starting 2.5 mm below the package: the transmit pairs turn west in the gap)
+    for k in range(3):
+        C(d, "100n", AVTT, GND, "fpga_pwr", "GRM155R71C104KA88D", place=(10.0, 13.4 - 2.4 * k, 90, "F"), zone="fixed", owner="U1 MGTAVTT")
+    for k in range(2):      # the two 4.7 uF on the back under the first two
+        C(d, "4u7", AVTT, GND, "fpga_pwr", "GRM155R60J475ME47D", place=(10.0, 13.4 - 2.4 * k, 90, "B"), zone="fixed", owner="U1 MGTAVTT")
     FB(d, "600R@100MHz", V18, "VCCADC", "fpga_pwr", "BLM15AG601SN1D", zone="decap_1v8", side="B", owner="U1 VCC1V8")
     C(d, "100n", "VCCADC", GND, "fpga_pwr", zone="decap_1v8", side="B", owner="U1 VCC1V8")
 
@@ -324,9 +339,10 @@ def build(pkg_path):
     ic(d, "U8", "TPS61023DRLR", "TPS61023", fp("SOT-563"),
        [(1, "FB", "FB_5V", "L"), (2, "EN", V3, "L"), (3, "VIN", V3IN, "L"), (4, "GND", GND, "R"), (5, "SW", "SW_5V", "R"), (6, "VOUT", V5CAN, "R")],
        "power", "TPS61023DRLR", "Boost 3.3 V -> 5 V for the CAN transceivers (enabled with the 3.3 V rail)")
-    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(3.3, 2.2, 0, "F"))     # input cap above the inductor's input end
-    L(d, "1uH", V3IN, "SW_5V", "power", "TFM201610ALMA-1R0MTAA", rel=(3.2, 0.0, 180, "F"))                        # SW end at pin 5
-    C(d, "10u", V5CAN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(-0.3, 2.2, 0, "F"))    # at VOUT (pin 6)
+    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(4.2, 2.5, 0, "F"))    # input cap right at the inductor's input end
+    L(d, "1uH", V3IN, "SW_5V", "power", "TFM201610ALMA-1R0MTAA", rel=(4.2, 0.0, 90, "F"))                         # upright beyond the output capacitor (keeps the block narrow)
+    C(d, "10u", V5CAN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(2.15, 0.0, 270, "F"))  # right at VOUT (pin 6, top) and GND (pin 4, bottom): the hot loop;
+                                                                                                                   #   SW (pin 5) runs out between its pads to the inductor
     R(d, "732k", V5CAN, "FB_5V", "power", rel=(0.0, 0.7, 0, "B"))
     R(d, "100k", "FB_5V", GND, "power", rel=(0.0, -0.7, 0, "B"))
 
@@ -343,7 +359,8 @@ def build(pkg_path):
         # bus protection and optional termination (solder jumper)
         ic(d, f"D{10 + i}", "PESD2CAN", "PESD2CAN", fp("SOT-23"),
            [(1, "I/O1", f"CAN{i}_H", "L"), (2, "I/O2", f"CAN{i}_L", "L"), (3, "GND", GND, "R")],
-           "can", "PESD2CAN,215", "CAN bus ESD protection", owner=f"U{10 + i}", rel=(0.3, 0.6, 0, "B"))   # on the back under the chip
+           "can", "PESD2CAN,215", "CAN bus ESD protection", owner=f"U{10 + i}", rel=(0.3, 0.6, 180, "B"))   # on the back under the chip,
+                                                                                    #   bus pads below the CANH/CANL pins, GND pad towards the logic side
         R(d, "120R", f"CAN{i}_H", f"CAN{i}_TERM", "can", "RC0402FR-07120RL", rel=(-1.3, -2.1, 0, "B"))
         R(d, "0R", f"CAN{i}_TERM", f"CAN{i}_L", "can", rel=(1.3, -2.1, 0, "B"))
         d.parts[-1].dnp = True

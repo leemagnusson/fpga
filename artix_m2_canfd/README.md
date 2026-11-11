@@ -27,7 +27,7 @@ python3 gen/build.py          # regenerates *.kicad_sch, *.kicad_pcb, lib/, bom.
 | LEDs | 4 user (bank 34) + power | active low, 0402 |
 
 The FPGA pin assignment is generated from the AMD package file
-(`gen/data/xc7a50tcsg325pkg.txt`): PCIe lanes in physical order on the GTP
+(`gen/data/xc7a50tcsg325pkg.txt`): PCIe lanes reversed on the GTP
 channels, user I/O (12 CAN signals, 4 LEDs) on bank 34, the oscillator and
 PERST# on bank 15 clock-capable pins, QSPI on the bank 14 configuration
 pins. All I/O banks run at 3.3 V.
@@ -52,57 +52,72 @@ in `gen/pcb.py`.
 
 ## Routing flow
 
-The generator places parts and draws the planes; `gen/route.py` escapes the
-BGA, adds the fan-out and hands the rest to Freerouting:
+The generator places parts and draws the planes; `gen/route.py` then does
+all the copper itself (no external autorouter):
 
 ```sh
-python3 gen/build.py                 # regenerate schematic, board, libraries
-python3 gen/route.py prepare         # BGA escapes + dog-bone vias for every used ball, stitching
-                                     # vias for plane-net pads, planes filled, build/*.dsn written
-java -jar freerouting.jar -de build/artix_m2_canfd.dsn -do build/artix_m2_canfd.ses -mp 400
-python3 gen/route.py import          # pull the routes back in, refill planes, save the board
-kicad-cli pcb drc --severity-all artix_m2_canfd.kicad_pcb
+python3 gen/build.py                 # regenerate schematic, board, libraries (stops if a part does not fit its zone)
+python3 gen/route.py route           # BGA escapes, plane vias, gen/router.py for everything else,
+                                     #   then KiCad's DRC in a loop until it reports nothing (about 2 minutes)
+kicad-cli pcb drc --severity-all artix_m2_canfd.kicad_pcb     # 0 violations, 0 unconnected
 ```
 
-Use Freerouting 1.9.0 (it needs a display: `xvfb-run -a java -jar ...` on a
-headless machine). The 2.x releases ignore `-mp` in headless mode and only
-write the session file when their own improvement heuristic gives up, which
-can take hours. Twelve passes take about ten minutes.
+`gen/escape.py` takes every used BGA ball to a via one pitch outside the
+package: outer ring straight out on the top layer, second ring through the
+free row gap, deeper balls on the bottom layer along the pad-row/column
+lines. The receive pairs are planned as pairs and leave the bottom row in
+M.2 finger order (lane 0 west ... lane 3 east), REFCLK between lanes 0 and
+1. `gen/fanout.py` adds a via to its plane beside every supply pad.
 
-Freerouting cannot get signals out of a 0.8 mm BGA once the plane vias are
-in, so `gen/escape.py` does that deterministically before the export: outer
-ring balls leave straight out on the top layer, second-ring balls through the
-free row gap beside them, and deeper balls drop to the bottom layer and run
-along the pad-row/column lines (every cell-centre via clears those lines by
-exactly 0.15 mm) to one pitch outside the package. Plane balls get a via in
-any free cell around them, or hop to a neighbouring ball of the same net;
-the two 1.8 V balls over the 1.0 V strip get a short bottom-layer run to a
-cell over the 1.8 V plane. The PCIe receive pairs and REFCLK are planned
-first, as pairs: a backtracking search tries adjacent exit lines (south
-column lines, or east/west row lines either side of a transmit pair) for
-both halves of each pair, deepest pair first, and rejects any placement
-that would strand the corner's other signals (JTAG, QSPI). The result:
-RX0, RX2 and REFCLK leave south on adjacent bottom-layer lines, RX1
-straight down on the top layer, RX3 east on the row lines either side of
-TX1, and the transmit pairs east on their row line and the row gap beside
-it. The search takes about ten minutes. Everything added by `prepare` is
-locked, which the DSN export turns into fixed wires that the autorouter
-leaves alone.
+`gen/router.py` is a grid router (0.1 mm lattice, A* over F.Cu and B.Cu)
+that works in this order:
 
-Planes (6 layers, 0.8 mm): L2 and L5 ground; L3 3.3 V everywhere; L4 1.8 V
-with a 1.0 V strip from the core balls up to the buck's output capacitors,
-the 3.3 V input under the fingers, along the right edge and in patches
-under the regulator inputs, 5 V at the CAN end reaching down to the boost,
-and the two transceiver rails at the GTP corner, each extended
-below the package under its decoupling zone and joined to the corner
-island by a locked 0.1 mm B.Cu link threaded through the escape via row
-(`pcb.LINKS`). Plane fills use 0.1 mm clearance and width so the islands
-survive the 0.4 mm vias on the 0.8 mm cell grid. A 0.3 mm
-keep-out ring keeps routed copper off the edge. The M.2 fingers, pads
-beyond their planes, and the FPGA's signal balls are left to the router.
+1. **PCIe pairs** as pairs: one search for the centreline, P and N offset
+   0.125 mm either side (0.1 mm tracks, 0.15 mm gap), symmetric lead-ins,
+   via pairs at a layer change, 0.3 mm kept to the next pair. Receive pairs
+   run straight to the fingers on F.Cu; the transmit pairs come down the east
+   edge on B.Cu, cross under the receive pairs and surface at their
+   capacitors. Each pair is then length-matched with small bumps on the
+   shorter half (all within 0.1 mm; the 1.6 mm that the ring-1/ring-2
+   transmit balls differ by inside the package is made up outside it).
+2. **Supplies**: pads the fan-out could not stitch, and the two
+   transceiver-rail corner islands under the GTP balls, are joined to their
+   planes.
+3. **Local power links**: every regulator and transceiver supply pin goes
+   straight to its capacitor or inductor on the same layer with the fattest
+   track that fits (exact geometry, 0.25-0.8 mm), switch nodes included, so
+   no decoupling loop runs through two vias and a plane.
+4. **Signals**, short nets first, with rip-up and retry.
+5. KiCad's DRC is run on the saved board; anything it reports (a via the
+   plane fill did not reach, a track a few microns close to a round pad) is
+   mended and the DRC run again until it is clean.
 
-After the autorouter, re-route the eight PCIe pairs and REFCLK by hand as
-coupled pairs: Freerouting routes each net on its own.
+Planes (6 layers, 0.8 mm): L2 and L5 ground. L3 is 3.3 V from the package
+upwards; below it and along the two long edges L3 carries the transceiver
+rails (MGTAVCC west, MGTAVTT east), each a strip from its LDO down to a
+block under its decoupling, plus the island under the GTP balls that the
+router links to the block. L4 is 1.8 V with a 1.0 V strip from the core
+balls up to the buck, the 3.3 V input under the fingers and up both long
+edges to the regulators, and 5 V at the CAN end. A 0.3 mm keep-out ring
+keeps routed copper off the board edge.
+
+### PCIe lane and polarity assignment (matters for the FPGA constraints)
+
+The M.2 lanes are **reversed** on the GTP quad and the **transmit pairs
+are polarity-swapped**, so that nothing has to cross on the board:
+
+| M.2 lane | GTP channel | RX balls (P/N) | TX balls carrying PERp/PERn |
+|---|---|---|---|
+| 0 | 3 (MGTP*3_216) | G4 / G3 | B1 (MGTPTXN3) / B2 (MGTPTXP3) |
+| 1 | 2 | C4 / C3 | D1 (MGTPTXN2) / D2 (MGTPTXP2) |
+| 2 | 1 | A4 / A3 | F1 (MGTPTXN1) / F2 (MGTPTXP1) |
+| 3 | 0 | E4 / E3 | H1 (MGTPTXN0) / H2 (MGTPTXP0) |
+
+In the FPGA design place lane n's GTPE2_CHANNEL on channel 3-n (LOC
+constraints, as the LiteFury design already does for its own lane order).
+The transmit polarity needs nothing: the host's receivers detect and
+correct an inverted lane during link training (PCIe base spec, lane
+polarity inversion). REFCLK is on MGTREFCLK0 (D6/D5), not inverted.
 
 ## Fabrication and assembly
 
@@ -162,8 +177,9 @@ in JLCPCB's placement preview before paying.
   symbol library, the schematic sheets and the board (zones, planes, placement).
 - `gen/pcbway.py`: fabrication/assembly package and upload for PCBWay.
 - `gen/jlcpcb.py`: gerbers, BOM and pick-and-place for JLCPCB, with LCSC part lookup (`gen/data/lcsc.json`).
+- `gen/router.py`: the grid router (pairs, supplies, direct power links, signals).
 - `gen/escape.py`, `gen/fanout.py`, `gen/route.py`: BGA escapes, plane fan-out and the
-  Freerouting round trip.
+  routing driver (fan-out, router, DRC loop).
 - `lib/`: generated symbol and footprint libraries (project-local tables
   `sym-lib-table` and `fp-lib-table` point at them). Footprints reference
   the official KiCad 9 3D models (`KICAD9_3DMODEL_DIR`) where one matches
