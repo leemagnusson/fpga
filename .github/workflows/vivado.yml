@@ -19,7 +19,7 @@ on:
 
 jobs:
   implement:
-    name: Vivado ${{ matrix.project }}
+    name: Vivado ${{ matrix.project }}${{ matrix.board && format(' ({0})', matrix.board) || '' }}
     # Self-hosted runners execute whatever a PR contains, so never run this for
     # pull requests from forks of this (public) repo. Pushes and same-repo PRs
     # are fine.
@@ -37,10 +37,14 @@ jobs:
           - { project: bml1/seg,       name: seg }
           - { project: bml1/seg2,      name: seg2 }
           - { project: litefury_canfd, name: litefury_canfd }
+          # the same project built for the artix_m2_canfd card (four CAN cores)
+          - { project: litefury_canfd, name: artix_m2_canfd, board: artix_m2 }
           - { project: t1s_trigger,    name: t1s_trigger }
     env:
       # go.tcl skips program.tcl (board programming) when CI is set.
       CI: "true"
+      # litefury_canfd/go.tcl: which board to build for (empty = its default).
+      BOARD: ${{ matrix.board }}
     steps:
       - uses: actions/checkout@v4
         with:

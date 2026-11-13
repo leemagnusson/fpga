@@ -56,6 +56,7 @@ docker_args=(
     --network host
     -e HOME=/tmp
     -e CI="${CI:-true}"
+    -e BOARD="${BOARD:-}"
     -v "$repo:$repo"
     -w "$PWD"
 )
