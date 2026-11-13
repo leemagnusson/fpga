@@ -50,17 +50,17 @@
 					(pin passive line (at 12.7 -3.81 180) (length 2.54) (name "MP" (effects (font (size 1.27 1.27)))) (number "MP" (effects (font (size 1.27 1.27)))))
 				)
 			)
-		(symbol "artix_m2_canfd:MCP2562FD"
+		(symbol "artix_m2_canfd:MCP2542FD"
 				(pin_names (offset 1.016))
 				(exclude_from_sim no)
 				(in_bom yes)
 				(on_board yes)
 				(property "Reference" "U" (at -7.62 8.89 0) (effects (font (size 1.27 1.27))))
-				(property "Value" "MCP2562FD" (at -7.62 -8.89 0) (effects (font (size 1.27 1.27))))
+				(property "Value" "MCP2542FD" (at -7.62 -8.89 0) (effects (font (size 1.27 1.27))))
 				(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 				(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 				(property "Description" "CAN FD transceiver bus 0, 8 Mbit/s, 5 V with 3.3 V I/O" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-				(symbol "MCP2562FD_1_1"
+				(symbol "MCP2542FD_1_1"
 					(rectangle (start -7.62 7.62) (end 7.62 -7.62) (stroke (width 0.254) (type default)) (fill (type background)))
 					(pin passive line (at -10.16 5.08 0) (length 2.54) (name "TXD" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
 					(pin passive line (at -10.16 2.54 0) (length 2.54) (name "VSS" (effects (font (size 1.27 1.27)))) (number "2" (effects (font (size 1.27 1.27)))))
@@ -114,48 +114,48 @@
 		(end 192.64 68.18)
 		(stroke (width 0.1524) (type dash))
 		(fill (type none))
-		(uuid "22030f03-c01a-5896-bf55-eb0bbe630b2c")
+		(uuid "32efcfb5-1c49-5b4b-b3e2-734035e3e90c")
 	)
-	(text "U10  MCP2562FD"
+	(text "U10  MCP2542FD"
 		(at 26.27 24.4 0)
 		(effects (font (size 1.5 1.5) bold) (justify left bottom))
-		(uuid "f8c1e7fb-0e01-567c-850c-3f715150b2c5")
+		(uuid "92a0a911-e3fd-55df-a5f0-dbb2d32cfea3")
 	)
 	(rectangle
 		(start 25 75.8)
 		(end 192.64 118.98)
 		(stroke (width 0.1524) (type dash))
 		(fill (type none))
-		(uuid "68c0bc3c-be19-5430-a624-8c754ed4a3e4")
+		(uuid "72094cce-da33-5c70-a4d0-2b5139120c53")
 	)
-	(text "U11  MCP2562FD"
+	(text "U11  MCP2542FD"
 		(at 26.27 75.2 0)
 		(effects (font (size 1.5 1.5) bold) (justify left bottom))
-		(uuid "d3c56827-8aca-51a9-bbca-cc7fad6f8df1")
+		(uuid "3114aec9-98a3-527c-b026-017746693c58")
 	)
 	(rectangle
 		(start 25 126.6)
 		(end 192.64 169.78)
 		(stroke (width 0.1524) (type dash))
 		(fill (type none))
-		(uuid "dee47d40-0dfb-5faf-ae9e-f93b91571cc6")
+		(uuid "d3a0c481-e809-581f-88a9-f9c3e7a0510e")
 	)
-	(text "U12  MCP2562FD"
+	(text "U12  MCP2542FD"
 		(at 26.27 126 0)
 		(effects (font (size 1.5 1.5) bold) (justify left bottom))
-		(uuid "455a66c8-a600-5634-9d01-89e68019fc2a")
+		(uuid "c61525f3-d746-5498-b6bb-bbe1ed99f4bf")
 	)
 	(rectangle
 		(start 25 177.4)
 		(end 192.64 220.58)
 		(stroke (width 0.1524) (type dash))
 		(fill (type none))
-		(uuid "80df60f1-d929-5d55-8443-8ae41cb6cac6")
+		(uuid "372c9601-685c-5f1b-b5fc-973e49ceef9f")
 	)
-	(text "U13  MCP2562FD"
+	(text "U13  MCP2542FD"
 		(at 26.27 176.8 0)
 		(effects (font (size 1.5 1.5) bold) (justify left bottom))
-		(uuid "94f2f4dc-2a49-5ad3-95b2-d004dc06773b")
+		(uuid "03fa79e8-f3df-5bc8-af16-c1963ebbdd9d")
 	)
 	(rectangle
 		(start 25 228.2)
@@ -181,7 +181,7 @@
 		(effects (font (size 1.5 1.5) bold) (justify left bottom))
 		(uuid "2b75f879-32df-54bc-a92c-bcc19000a971")
 	)
-	(symbol (lib_id "artix_m2_canfd:MCP2562FD") (at 57.15 38.1 0) (unit 1)
+	(symbol (lib_id "artix_m2_canfd:MCP2542FD") (at 57.15 38.1 0) (unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -191,7 +191,7 @@
 			(at 49.53 29.21 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Value" "MCP2562FD"
+		(property "Value" "MCP2542FD"
 			(at 49.53 46.99 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
@@ -207,7 +207,7 @@
 			(at 57.15 38.1 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "MCP2562FDT-E/MF"
+		(property "MPN" "MCP2542FD-E/MF"
 			(at 57.15 38.1 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -324,7 +324,7 @@
 			(at 116.84 38.1 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "PESD2CANUX"
+		(property "MPN" "PESD2CAN,215"
 			(at 116.84 38.1 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -577,7 +577,7 @@
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 	)
-	(symbol (lib_id "artix_m2_canfd:MCP2562FD") (at 57.15 88.9 0) (unit 1)
+	(symbol (lib_id "artix_m2_canfd:MCP2542FD") (at 57.15 88.9 0) (unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -587,7 +587,7 @@
 			(at 49.53 80.01 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Value" "MCP2562FD"
+		(property "Value" "MCP2542FD"
 			(at 49.53 97.79 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
@@ -603,7 +603,7 @@
 			(at 57.15 88.9 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "MCP2562FDT-E/MF"
+		(property "MPN" "MCP2542FD-E/MF"
 			(at 57.15 88.9 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -720,7 +720,7 @@
 			(at 116.84 88.9 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "PESD2CANUX"
+		(property "MPN" "PESD2CAN,215"
 			(at 116.84 88.9 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -973,7 +973,7 @@
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 	)
-	(symbol (lib_id "artix_m2_canfd:MCP2562FD") (at 57.15 139.7 0) (unit 1)
+	(symbol (lib_id "artix_m2_canfd:MCP2542FD") (at 57.15 139.7 0) (unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -983,7 +983,7 @@
 			(at 49.53 130.81 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Value" "MCP2562FD"
+		(property "Value" "MCP2542FD"
 			(at 49.53 148.59 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
@@ -999,7 +999,7 @@
 			(at 57.15 139.7 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "MCP2562FDT-E/MF"
+		(property "MPN" "MCP2542FD-E/MF"
 			(at 57.15 139.7 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -1116,7 +1116,7 @@
 			(at 116.84 139.7 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "PESD2CANUX"
+		(property "MPN" "PESD2CAN,215"
 			(at 116.84 139.7 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -1369,7 +1369,7 @@
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 	)
-	(symbol (lib_id "artix_m2_canfd:MCP2562FD") (at 57.15 190.5 0) (unit 1)
+	(symbol (lib_id "artix_m2_canfd:MCP2542FD") (at 57.15 190.5 0) (unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -1379,7 +1379,7 @@
 			(at 49.53 181.61 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Value" "MCP2562FD"
+		(property "Value" "MCP2542FD"
 			(at 49.53 199.39 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
@@ -1395,7 +1395,7 @@
 			(at 57.15 190.5 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "MCP2562FDT-E/MF"
+		(property "MPN" "MCP2542FD-E/MF"
 			(at 57.15 190.5 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -1512,7 +1512,7 @@
 			(at 116.84 190.5 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "PESD2CANUX"
+		(property "MPN" "PESD2CAN,215"
 			(at 116.84 190.5 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)

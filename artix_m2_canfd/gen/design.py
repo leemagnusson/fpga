@@ -9,10 +9,10 @@ connector).
 Pin numbers/names come straight from the datasheets:
   TLV62569DBV  SOT-23-5   1 EN  2 GND  3 SW  4 VIN  5 FB            (buck 2 A, FB = 0.6 V)
   TPS62823DLC  VSON-8     1 EN  2 FB  3 AGND 4 NC  5 PGND 6 SW 7 VIN 8 PG   (buck 3 A, FB = 0.6 V, no pad)
-  TLV755xPDBV  SOT-23-5   1 IN  2 GND  3 EN  4 NC  5 OUT             (fixed LDO)
+  TLV755xP/TLV757xP DBV SOT-23-5  1 IN  2 GND  3 EN  4 NC  5 OUT      (fixed LDO, 500 mA / 1 A, same pinout)
   TPS22918DBV  SOT-23-6   1 VIN 2 GND  3 ON  4 CT  5 QOD  6 VOUT     (load switch)
   TPS61023DRL  SOT-563    1 FB  2 EN   3 VIN 4 GND 5 SW   6 VOUT     (boost, FB = 0.6 V)
-  MCP2562FD    DFN-8      1 TXD 2 VSS  3 VDD 4 RXD 5 VIO  6 CANL 7 CANH 8 STBY, 9 = pad
+  MCP2542FD    DFN-8      1 TXD 2 VSS  3 VDD 4 RXD 5 VIO  6 CANL 7 CANH 8 STBY, 9 = pad   (MCP2562FD, MCP2558FD, TCAN1462V pin-compatible)
   W25Q128JV    WSON-8     1 /CS 2 DO(IO1) 3 /WP(IO2) 4 GND 5 DI(IO0) 6 CLK 7 /HOLD(IO3) 8 VCC, 9 = pad
   ECS-2520MV   2520       1 Tri-state 2 GND 3 OUT 4 VDD
   PESD2CAN     SOT-23     1 line 2 line 3 GND
@@ -130,9 +130,18 @@ def build(pkg_path):
     fpga_net = {}  # ball -> net
     def setnet(ball, net):
         fpga_net[ball] = net
+    # M.2 lane n on GTP channel 3-n (lane reversal; in the FPGA design it is only the LOC
+    # constraint of each lane's GTPE2_CHANNEL). The channels sit north to south on the east
+    # edge of the package while the fingers run west to east, so with this order the transmit
+    # pairs leave the package south-bound and turn west without crossing each other, and the
+    # receive pairs come out of the bottom ball row in finger order (escape.PAIR_EXITS).
+    # The transmit P/N balls are swapped too, so the ring-1 ball (inner escape via, west when
+    # heading south) is P like the P-west/N-east capacitor and finger order; the host's
+    # receiver corrects lane polarity during training (PCIe base spec, lane polarity inversion).
     for i in range(4):
-        setnet(mgt[f"MGTPRXP{i}_216"], f"PCIE_RX{i}_P"); setnet(mgt[f"MGTPRXN{i}_216"], f"PCIE_RX{i}_N")
-        setnet(mgt[f"MGTPTXP{i}_216"], f"PCIE_TX{i}_P"); setnet(mgt[f"MGTPTXN{i}_216"], f"PCIE_TX{i}_N")
+        lane = 3 - i
+        setnet(mgt[f"MGTPRXP{i}_216"], f"PCIE_RX{lane}_P"); setnet(mgt[f"MGTPRXN{i}_216"], f"PCIE_RX{lane}_N")
+        setnet(mgt[f"MGTPTXP{i}_216"], f"PCIE_TX{lane}_N"); setnet(mgt[f"MGTPTXN{i}_216"], f"PCIE_TX{lane}_P")
     setnet(mgt["MGTREFCLK0P_216"], "PCIE_REFCLK_P"); setnet(mgt["MGTREFCLK0N_216"], "PCIE_REFCLK_N")
     setnet(mgt["MGTRREF_216"], "MGTRREF")
     setnet(osc_ball, "CLK100M")
@@ -180,7 +189,7 @@ def build(pkg_path):
     # stable ordering inside each unit: by name
     pins.sort(key=lambda p: (p.unit, p.side, p.name))
     d.add(Part("U1", "XC7A50T-2CSG325I", "XC7A50T-CSG325", fp("Xilinx_CSG325"), pins,
-               mpn="XC7A50T-2CSG325I", description="AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)",
+               mpn="XC7A50T-2CSG325I", description="AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)",
                sheet="fpga_io", place=(0, 24.0, 180, "F")))
     d.parts[-1].zone = "fixed"
     d.parts[-1].unit_sheets = {6: "fpga_pwr"}      # the power unit sits with the decoupling
@@ -255,11 +264,11 @@ def build(pkg_path):
     d.parts[-1].zone = "fixed"   # its alignment holes go through the board: keep it in its own band
     ic(d, "X1", "100 MHz 3.3V", "OSC_2520", fp("Oscillator_2520_4pin"),
        [(1, "EN/NC", None, "L"), (2, "GND", GND, "L"), (3, "OUT", "CLK100M", "R"), (4, "VDD", V3, "R")],
-       "fpga_io", "ECS-2520MV-100-CN-TR", "100 MHz CMOS oscillator, 2.5x2.0 mm, 3.3 V")
+       "fpga_io", "ECS-2520MV-100-AN-TR", "100 MHz CMOS oscillator, 2.5x2.0 mm, 3.3 V")
     C(d, "100n", V3, GND, "fpga_io", rel=(-3.0, 0.2, 270, "F"))                # beside VDD (pin 4)
     for i in range(4):   # on the back under the CAN headers at the far end, two per header (the only free spot)
         hdr, row = ("J3", "J4")[i // 2], (0.9, -0.9)[i % 2]
-        LED(d, "green", f"LED{i}_N", f"LED{i}_A", "fpga_io", "19-217/GHC-YR1S2/3T", owner=hdr, rel=(-1.6, row, 0, "B"))
+        LED(d, "green", f"LED{i}_N", f"LED{i}_A", "fpga_io", "16-213/GHC-YR1S1/3T", owner=hdr, rel=(-1.6, row, 0, "B"))
         R(d, "1k", f"LED{i}_A", V3, "fpga_io", owner=hdr, rel=(1.6, row, 0, "B"))
 
     # ---- FPGA decoupling (per UG483 guidance, scaled for the 50T) ---------------------
@@ -273,7 +282,13 @@ def build(pkg_path):
     decouple(V18,  "decap_1v8",  [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 1, "GRM155R60J475ME47D"), ("470n", "0402", 2, "GRM155R61A474KE15D")])
     decouple(V3,   "decap_3v3",  [("47u", "0805", 1, "GRM21BR60J476ME15L"), ("4u7", "0402", 4, "GRM155R60J475ME47D"), ("470n", "0402", 4, "GRM155R61A474KE15D")])
     decouple(AVCC, "decap_avcc", [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("100n", "0402", 3, "GRM155R71C104KA88D")])
-    decouple(AVTT, "decap_avtt", [("4u7", "0402", 2, "GRM155R60J475ME47D"), ("100n", "0402", 3, "GRM155R71C104KA88D")])
+    # AVTT: a column on the top along the east edge below the GTP corner, over its In2 block;
+    # the strip x 7.7-9 beside it is the outermost transmit pair's way down to its capacitors
+    # (starting 2.5 mm below the package: the transmit pairs turn west in the gap)
+    for k in range(3):
+        C(d, "100n", AVTT, GND, "fpga_pwr", "GRM155R71C104KA88D", place=(10.0, 13.4 - 2.4 * k, 90, "F"), zone="fixed", owner="U1 MGTAVTT")
+    for k in range(2):      # the two 4.7 uF on the back under the first two
+        C(d, "4u7", AVTT, GND, "fpga_pwr", "GRM155R60J475ME47D", place=(10.0, 13.4 - 2.4 * k, 90, "B"), zone="fixed", owner="U1 MGTAVTT")
     FB(d, "600R@100MHz", V18, "VCCADC", "fpga_pwr", "BLM15AG601SN1D", zone="decap_1v8", side="B", owner="U1 VCC1V8")
     C(d, "100n", "VCCADC", GND, "fpga_pwr", zone="decap_1v8", side="B", owner="U1 VCC1V8")
 
@@ -300,9 +315,9 @@ def build(pkg_path):
     R(d, "200k", V18, "FB_1V8", "power", rel=(0.0, 0.7, 0, "B"))
     R(d, "100k", "FB_1V8", GND, "power", rel=(0.0, -0.7, 0, "B"))
     # MGT rails from 1.8 V: 1.0 V and 1.2 V fixed LDOs
-    ic(d, "U5", "TLV75510PDBVR", "TLV755P", fp("SOT-23-5"),
+    ic(d, "U5", "TLV75710PDBVR", "TLV755P", fp("SOT-23-5"),
        [(1, "IN", V18, "L"), (2, "GND", GND, "L"), (3, "EN", V18, "L"), (4, "NC", None, "R"), (5, "OUT", AVCC, "R")],
-       "power", "TLV75510PDBVR", "500 mA LDO, 1.0 V MGTAVCC")
+       "power", "TLV75710PDBVR", "1 A LDO, 1.0 V MGTAVCC (TLV75510PDBVR pin-compatible)")
     C(d, "1u", V18, GND, "power", voltage="10V", rel=(-3.0, 0.5, 270, "F"))
     C(d, "1u", AVCC, GND, "power", voltage="10V", rel=(3.0, 0.5, 270, "F"))
     ic(d, "U6", "TLV75512PDBVR", "TLV755P", fp("SOT-23-5"),
@@ -318,15 +333,16 @@ def build(pkg_path):
     C(d, "100n", "EN_3V3", GND, "power", rel=(-3.3, -1.0, 180, "F"))           # ~10 ms delay after 1.8 V; EN end at ON (pin 3)
     C(d, "1n", "CT_3V3", GND, "power", rel=(3.0, -2.6, 270, "F"))              # slew ~ 1 ms; CT end at pin 4
     C(d, "10u", V3, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(3.0, 0.4, 270, "F"))   # at VOUT (pin 6)
-    LED(d, "green", "PWR_LED_K", V3, "power", "19-217/GHC-YR1S2/3T", rel=(0.0, 0.7, 0, "B"))
+    LED(d, "green", "PWR_LED_K", V3, "power", "16-213/GHC-YR1S1/3T", rel=(0.0, 0.7, 0, "B"))
     R(d, "1k", "PWR_LED_K", GND, "power", rel=(0.0, -0.7, 0, "B"))
     # 5 V for the CAN transceivers: TPS61023 boost, FB 0.6 V: R1/R2 = (5-0.6)/0.6 = 7.33 -> 732k / 100k
     ic(d, "U8", "TPS61023DRLR", "TPS61023", fp("SOT-563"),
        [(1, "FB", "FB_5V", "L"), (2, "EN", V3, "L"), (3, "VIN", V3IN, "L"), (4, "GND", GND, "R"), (5, "SW", "SW_5V", "R"), (6, "VOUT", V5CAN, "R")],
        "power", "TPS61023DRLR", "Boost 3.3 V -> 5 V for the CAN transceivers (enabled with the 3.3 V rail)")
-    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(3.3, 2.2, 0, "F"))     # input cap above the inductor's input end
-    L(d, "1uH", V3IN, "SW_5V", "power", "TFM201610ALMA-1R0MTAA", rel=(3.2, 0.0, 180, "F"))                        # SW end at pin 5
-    C(d, "10u", V5CAN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(-0.3, 2.2, 0, "F"))    # at VOUT (pin 6)
+    C(d, "10u", V3IN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(4.2, 2.5, 0, "F"))    # input cap right at the inductor's input end
+    L(d, "1uH", V3IN, "SW_5V", "power", "TFM201610ALMA-1R0MTAA", rel=(4.2, 0.0, 90, "F"))                         # upright beyond the output capacitor (keeps the block narrow)
+    C(d, "10u", V5CAN, GND, "power", "GRM188R61A106KE69D", size="0603", voltage="10V", rel=(2.15, 0.0, 270, "F"))  # right at VOUT (pin 6, top) and GND (pin 4, bottom): the hot loop;
+                                                                                                                   #   SW (pin 5) runs out between its pads to the inductor
     R(d, "732k", V5CAN, "FB_5V", "power", rel=(0.0, 0.7, 0, "B"))
     R(d, "100k", "FB_5V", GND, "power", rel=(0.0, -0.7, 0, "B"))
 
@@ -334,16 +350,17 @@ def build(pkg_path):
     conn = []
     for i in range(4):
         x = -8.0 + i * 5.3
-        ic(d, f"U{10 + i}", "MCP2562FD", "MCP2562FD", fp("DFN-8_3x3mm_P0.65mm"),
+        ic(d, f"U{10 + i}", "MCP2542FD", "MCP2542FD", fp("DFN-8_3x3mm_P0.65mm"),
            [(1, "TXD", f"CAN{i}_TXD", "L"), (2, "VSS", GND, "L"), (3, "VDD", V5CAN, "L"), (4, "RXD", f"CAN{i}_RXD", "L"),
             (5, "VIO", V3, "R"), (6, "CANL", f"CAN{i}_L", "R"), (7, "CANH", f"CAN{i}_H", "R"), (8, "STBY", f"CAN{i}_STBY", "R"), (9, "PAD", GND, "R")],
-           "can", "MCP2562FDT-E/MF", f"CAN FD transceiver bus {i}, 8 Mbit/s, 5 V with 3.3 V I/O")
+           "can", "MCP2542FD-E/MF", f"CAN FD transceiver bus {i}, 8 Mbit/s, 5 V with 3.3 V I/O")
         C(d, "100n", V5CAN, GND, "can", rel=(-3.2, 0.0, 90, "F"))      # VDD (pin 3) bottom end, VSS (pin 2) top end
         C(d, "100n", V3, GND, "can", rel=(0.8, -2.6, 180, "F"))        # VIO (pin 5): V3 end under the pin
         # bus protection and optional termination (solder jumper)
         ic(d, f"D{10 + i}", "PESD2CAN", "PESD2CAN", fp("SOT-23"),
            [(1, "I/O1", f"CAN{i}_H", "L"), (2, "I/O2", f"CAN{i}_L", "L"), (3, "GND", GND, "R")],
-           "can", "PESD2CANUX", "CAN bus ESD protection", owner=f"U{10 + i}", rel=(0.3, 0.6, 0, "B"))   # on the back under the chip
+           "can", "PESD2CAN,215", "CAN bus ESD protection", owner=f"U{10 + i}", rel=(0.3, 0.6, 180, "B"))   # on the back under the chip,
+                                                                                    #   bus pads below the CANH/CANL pins, GND pad towards the logic side
         R(d, "120R", f"CAN{i}_H", f"CAN{i}_TERM", "can", "RC0402FR-07120RL", rel=(-1.3, -2.1, 0, "B"))
         R(d, "0R", f"CAN{i}_TERM", f"CAN{i}_L", "can", rel=(1.3, -2.1, 0, "B"))
         d.parts[-1].dnp = True

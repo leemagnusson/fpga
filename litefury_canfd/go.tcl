@@ -10,6 +10,11 @@
 #   VIVADO_JOBS     parallel jobs for synthesis/implementation (default 4)
 #   AXI_DATA_WIDTH  PCIe bridge AXI width, 64 or 128 (default 128)
 #   PCIE_GEN        1 (default) or 2
+#   CAN_CORES       number of CAN cores, 1 to 4 (artix_m2 only; default 4, one per
+#                   transceiver; transceivers without a core are held idle)
+#   BOARD           litefury (default) or artix_m2: the ../artix_m2_canfd card,
+#                   XC7A50T-2CSG325I, constraints generated from its board file
+#                   by ../artix_m2_canfd/gen/xdc.py
 #   BD_POST_TCL     Tcl file sourced after bd.tcl (experiments)
 #   DEBUG_ILA       if set, add the free-licence ILA described in bd.tcl
 #   CI              if set, skip programming the board at the end
@@ -18,7 +23,6 @@
 #   top.bit, top.bin, reports/
 
 set design_name top
-set device xc7a100tfgg484-2L
 set here [file dirname [file normalize [info script]]]
 set repo [file normalize $here/..]
 source $here/fix_banners.tcl
@@ -26,6 +30,16 @@ source $here/fix_banners.tcl
 proc env_or {name default} {
     if {[info exists ::env($name)] && $::env($name) ne ""} { return $::env($name) }
     return $default
+}
+set ::board [env_or BOARD litefury]
+switch $::board {
+    litefury { set device xc7a100tfgg484-2L; set ::num_can 1 }
+    artix_m2 {
+        set device xc7a50tcsg325-2
+        set ::num_can [env_or CAN_CORES 4]
+        if {$::num_can < 1 || $::num_can > 4} { error "CAN_CORES must be 1 to 4" }
+    }
+    default  { error "BOARD must be litefury or artix_m2, not $::board" }
 }
 set ::pci_vendor_id [env_or PCI_VENDOR_ID 0x1760]
 set ::pci_device_id [env_or PCI_DEVICE_ID 0xFF00]
@@ -79,13 +93,13 @@ set_property top canfd_wrapper [current_fileset]
 update_compile_order -fileset sources_1
 
 add_files -fileset constrs_1 [list \
-    $here/constraints/litefury_early.xdc \
-    $here/constraints/litefury.xdc \
-    $here/constraints/litefury_impl.xdc]
-set_property PROCESSING_ORDER EARLY [get_files litefury_early.xdc]
-set_property PROCESSING_ORDER LATE  [get_files litefury.xdc]
-set_property PROCESSING_ORDER LATE  [get_files litefury_impl.xdc]
-set_property USED_IN {implementation} [get_files litefury_impl.xdc]
+    $here/constraints/${::board}_early.xdc \
+    $here/constraints/${::board}.xdc \
+    $here/constraints/${::board}_impl.xdc]
+set_property PROCESSING_ORDER EARLY [get_files ${::board}_early.xdc]
+set_property PROCESSING_ORDER LATE  [get_files ${::board}.xdc]
+set_property PROCESSING_ORDER LATE  [get_files ${::board}_impl.xdc]
+set_property USED_IN {implementation} [get_files ${::board}_impl.xdc]
 
 generate_target all [get_files canfd.bd]
 # Everything generated so far: the imported wrapper (canfd.srcs), the block

@@ -68,6 +68,18 @@ Environment: `CTU_CAN_FD_SRC` (core location if not the submodule),
 `PCI_VENDOR_ID` / `PCI_DEVICE_ID`, `VIVADO_JOBS`, `AXI_DATA_WIDTH` (64 or
 128), `DEBUG_ILA` (see below).
 
+### Building for the artix_m2_canfd card
+
+`BOARD=artix_m2 CI=1 ./go.sh` builds the same design for the card in
+`../artix_m2_canfd` (XC7A50T-2CSG325I, 100 MHz single-ended oscillator).
+It has four CAN cores, one per transceiver, which show up as `can0` to
+`can3` (`sw/can-up.sh can2` and so on). `CAN_CORES=1..4` builds fewer; a
+transceiver without a core is held recessive and in standby. The pin constraints (`constraints/artix_m2_early.xdc`,
+`constraints/artix_m2.xdc`) are generated from the routed board by
+`python3 ../artix_m2_canfd/gen/xdc.py`: rerun it whenever the board's FPGA
+pins change. `program.tcl` and `program_flash.tcl` still name the LiteFury's
+device, hence `CI=1`.
+
 ### Debug build
 
 `DEBUG_ILA=1 ./go.sh` adds one ILA that watches the PCIe bridge's AXI master
@@ -156,7 +168,10 @@ echo "10ee cafd ffffffff ffffffff 0 0 1" | sudo tee /sys/bus/pci/drivers/ctucanf
 BAR0 (32 KB) is what the driver's `ctucanfd_pci.c` expects from CTU's card:
 offset 0x0000 holds an ID word whose low nibble is the number of cores (1),
 and 0x4050 is the "Avalon-to-PCIe interrupt enable" register, implemented
-here as a real interrupt gate. BAR1 (16 KB) is the CAN core's register map.
+here as a real interrupt gate. BAR1 (16 KB) is the CAN core's register map;
+with several cores (artix_m2) BAR1 holds one 16 KB window per core, 0x4000
+apart as the driver expects, each with its own timestamp capture block, and
+all cores share the one interrupt.
 `rtl/can_wrap_bd.v` presents it to the block design as an AXI4-Lite slave
 and bridges to the core's APB4 port, and answers offsets 0x1000-0x1FFF
 itself with the TX timestamp capture block (0x1000 signature `0x54534C46`,

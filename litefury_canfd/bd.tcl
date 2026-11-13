@@ -1,8 +1,9 @@
-# Block design for the LiteFury CAN FD card. Sourced by go.tcl inside an open
+# Block design for the LiteFury CAN FD card (and, with BOARD=artix_m2, the artix_m2_canfd card). Sourced by go.tcl inside an open
 # project that already has the RTL files and the CTU CAN FD IP repository.
 #
 #   host <-PCIe x4 Gen1-> axi_pcie_0 --M_AXI--> smartconnect --+--> misc_regs (BAR0)
 #                                                               +--> can_wrap_bd (AXI-Lite to APB) --> CTU CAN FD (BAR1)
+#                                                               +--> ... one per core ($::num_can), 0x4000 apart in BAR1
 #   200 MHz sys_clk -> clk_wiz -> 80 MHz CAN/APB clock
 #   CAN irq -> irq_bridge -> axi_pcie INTX_MSI_Request
 
@@ -19,14 +20,30 @@ create_bd_design canfd
 set pcie_mgt    [create_bd_intf_port -mode Master -vlnv xilinx.com:interface:pcie_7x_mgt_rtl:1.0 pcie_mgt]
 set pcie_refclk [create_bd_intf_port -mode Slave  -vlnv xilinx.com:interface:diff_clock_rtl:1.0 pcie_refclk]
 set_property CONFIG.FREQ_HZ 100000000 $pcie_refclk
-set sys_clk     [create_bd_intf_port -mode Slave  -vlnv xilinx.com:interface:diff_clock_rtl:1.0 sys_clk]
-set_property CONFIG.FREQ_HZ 200000000 $sys_clk
+if {$::board eq "artix_m2"} {
+    # artix_m2_canfd card: 100 MHz single-ended oscillator
+    set sys_clk [create_bd_port -dir I -type clk -freq_hz 100000000 sys_clk]
+} else {
+    set sys_clk [create_bd_intf_port -mode Slave  -vlnv xilinx.com:interface:diff_clock_rtl:1.0 sys_clk]
+    set_property CONFIG.FREQ_HZ 200000000 $sys_clk
+}
 set perst [create_bd_port -dir I -type rst pcie_perst_n]
 set_property CONFIG.POLARITY ACTIVE_LOW $perst
-create_bd_port -dir O can_tx
-create_bd_port -dir I can_rx
-create_bd_port -dir O can_stby
 create_bd_port -dir O -from 3 -to 0 leds
+# CAN transceiver pins: the LiteFury has one (can_tx, can_rx, can_stby); the
+# artix_m2 card has four (can<i>_tx, can<i>_rx, can<i>_stby).
+if {$::board eq "artix_m2"} {
+    set can_pins {}
+    for {set i 0} {$i < 4} {incr i} { lappend can_pins [list can${i}_tx can${i}_rx can${i}_stby] }
+} else {
+    set can_pins [list [list can_tx can_rx can_stby]]
+}
+foreach p $can_pins {
+    lassign $p tx rx stby
+    create_bd_port -dir O $tx
+    create_bd_port -dir I $rx
+    create_bd_port -dir O $stby
+}
 
 # ---- PCIe ------------------------------------------------------------------
 set refclk_buf [create_bd_cell -type ip -vlnv [ipv util_ds_buf] pcie_refclk_buf]
@@ -50,7 +67,8 @@ set_property -dict [list \
     CONFIG.AXIBAR_NUM {1} \
     CONFIG.BAR0_ENABLED {true} CONFIG.BAR0_TYPE {Memory} CONFIG.BAR0_SCALE {Kilobytes} CONFIG.BAR0_SIZE {32} \
     CONFIG.PCIEBAR2AXIBAR_0 {0x00000000} \
-    CONFIG.BAR1_ENABLED {true} CONFIG.BAR1_TYPE {Memory} CONFIG.BAR1_SCALE {Kilobytes} CONFIG.BAR1_SIZE {16} \
+    CONFIG.BAR1_ENABLED {true} CONFIG.BAR1_TYPE {Memory} CONFIG.BAR1_SCALE {Kilobytes} \
+    CONFIG.BAR1_SIZE [expr {$::num_can == 1 ? 16 : $::num_can == 2 ? 32 : 64}] \
     CONFIG.PCIEBAR2AXIBAR_1 {0x00010000} \
     CONFIG.MSI_DECODE_ENABLED {true} \
     CONFIG.NUM_MSI_REQ {0} \
@@ -77,13 +95,17 @@ connect_bd_net [get_bd_pins $rst_pcie/peripheral_aresetn] [get_bd_pins $pcie/axi
 # 80 MHz makes both 1 Mbit/s (80 tq) and 8 Mbit/s (10 tq) integer divisions.
 set clk [create_bd_cell -type ip -vlnv [ipv clk_wiz] clk_wiz_0]
 set_property -dict [list \
-    CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
-    CONFIG.PRIM_IN_FREQ {200.000} \
+    CONFIG.PRIM_SOURCE [expr {$::board eq "artix_m2" ? "Single_ended_clock_capable_pin" : "Differential_clock_capable_pin"}] \
+    CONFIG.PRIM_IN_FREQ [expr {$::board eq "artix_m2" ? "100.000" : "200.000"}] \
     CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {80.000} \
     CONFIG.USE_LOCKED {true} \
     CONFIG.USE_RESET {false} \
 ] $clk
-connect_bd_intf_net $sys_clk [get_bd_intf_pins $clk/CLK_IN1_D]
+if {$::board eq "artix_m2"} {
+    connect_bd_net $sys_clk [get_bd_pins $clk/clk_in1]
+} else {
+    connect_bd_intf_net $sys_clk [get_bd_intf_pins $clk/CLK_IN1_D]
+}
 
 set rst_can [create_bd_cell -type ip -vlnv [ipv proc_sys_reset] rst_can]
 connect_bd_net [get_bd_pins $clk/clk_out1] [get_bd_pins $rst_can/slowest_sync_clk]
@@ -92,7 +114,7 @@ connect_bd_net [get_bd_pins $clk/locked] [get_bd_pins $rst_can/dcm_locked]
 
 # ---- AXI fabric ---------------------------------------------------------------
 set smc [create_bd_cell -type ip -vlnv [ipv smartconnect] axi_smc]
-set num_mi [expr {[info exists ::env(BD_SMOKE_TEST)] ? 1 : 2}]
+set num_mi [expr {[info exists ::env(BD_SMOKE_TEST)] ? 1 : 1 + $::num_can}]
 set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI $num_mi CONFIG.NUM_CLKS {2}] $smc
 connect_bd_intf_net [get_bd_intf_pins $pcie/M_AXI] [get_bd_intf_pins $smc/S00_AXI]
 connect_bd_net [get_bd_pins $pcie/axi_aclk_out] [get_bd_pins $smc/aclk]
@@ -101,6 +123,7 @@ connect_bd_net [get_bd_pins $rst_pcie/peripheral_aresetn] [get_bd_pins $smc/ares
 
 # ---- BAR0: board registers ----------------------------------------------------
 set misc [create_bd_cell -type module -reference misc_regs misc_regs_0]
+set_property CONFIG.NUM_CORES $::num_can $misc
 connect_bd_intf_net [get_bd_intf_pins $smc/M00_AXI] [get_bd_intf_pins $misc/s_axi]
 connect_bd_net [get_bd_pins $clk/clk_out1] [get_bd_pins $misc/s_axi_aclk]
 connect_bd_net [get_bd_pins $rst_can/peripheral_aresetn] [get_bd_pins $misc/s_axi_aresetn]
@@ -110,44 +133,68 @@ connect_bd_net [get_bd_pins $misc/leds] [get_bd_ports leds]
 # ---- BAR1: CTU CAN FD core ---------------------------------------------------------
 # rtl/can_wrap_bd.v presents an AXI4-Lite slave and bridges it to the core's
 # APB4 port; rtl/can_wrap.vhd instantiates the core (library ctu_can_fd_rtl).
+# Transceivers with a core run in normal mode (STBY low); the rest are held
+# recessive and in standby.
 set zero [create_bd_cell -type ip -vlnv [ipv xlconstant] const_0]
 set_property -dict [list CONFIG.CONST_WIDTH {1} CONFIG.CONST_VAL {0}] $zero
-connect_bd_net [get_bd_pins $zero/dout] [get_bd_ports can_stby]
-
-# BD_SMOKE_TEST in the environment builds everything except the CAN core, to
+set one [create_bd_cell -type ip -vlnv [ipv xlconstant] const_1]
+set_property -dict [list CONFIG.CONST_WIDTH {1} CONFIG.CONST_VAL {1}] $one
+# BD_SMOKE_TEST in the environment builds everything except the CAN cores, to
 # check the PCIe side and constraints without the submodule present.
-if {[info exists ::env(BD_SMOKE_TEST)]} {
-    puts "BD_SMOKE_TEST set: leaving the CTU CAN FD core out"
-    set can_irq_net [get_bd_pins $zero/dout]
-} else {
-    set can [create_bd_cell -type module -reference can_wrap_bd ctu_can_fd_0]
-    connect_bd_intf_net [get_bd_intf_pins $smc/M01_AXI] [get_bd_intf_pins $can/s_axi]
-    connect_bd_net [get_bd_pins $clk/clk_out1] [get_bd_pins $can/s_axi_aclk]
-    connect_bd_net [get_bd_pins $rst_can/peripheral_aresetn] [get_bd_pins $can/s_axi_aresetn]
-    connect_bd_net [get_bd_pins $misc/timestamp] [get_bd_pins $can/timestamp]
-    connect_bd_net [get_bd_pins $can/can_tx] [get_bd_ports can_tx]
-    connect_bd_net [get_bd_ports can_rx] [get_bd_pins $can/can_rx]
-    set can_irq_net [get_bd_pins $can/irq]
+set smoke [info exists ::env(BD_SMOKE_TEST)]
+if {$smoke} { puts "BD_SMOKE_TEST set: leaving the CTU CAN FD cores out" }
+set ncores [expr {$smoke ? 0 : $::num_can}]
+
+# The cores' interrupts as one vector for misc_regs (LED) and irq_bridge.
+set irqs [create_bd_cell -type ip -vlnv [ipv xlconcat] can_irqs]
+set_property CONFIG.NUM_PORTS $::num_can $irqs
+set cans {}
+for {set i 0} {$i < [llength $can_pins]} {incr i} {
+    lassign [lindex $can_pins $i] tx rx stby
+    if {$i < $ncores} {
+        set can [create_bd_cell -type module -reference can_wrap_bd ctu_can_fd_$i]
+        lappend cans $can
+        connect_bd_intf_net [get_bd_intf_pins $smc/M0[expr {$i + 1}]_AXI] [get_bd_intf_pins $can/s_axi]
+        connect_bd_net [get_bd_pins $clk/clk_out1] [get_bd_pins $can/s_axi_aclk]
+        connect_bd_net [get_bd_pins $rst_can/peripheral_aresetn] [get_bd_pins $can/s_axi_aresetn]
+        connect_bd_net [get_bd_pins $misc/timestamp] [get_bd_pins $can/timestamp]
+        connect_bd_net [get_bd_pins $can/can_tx] [get_bd_ports $tx]
+        connect_bd_net [get_bd_ports $rx] [get_bd_pins $can/can_rx]
+        connect_bd_net [get_bd_pins $can/irq] [get_bd_pins $irqs/In$i]
+        connect_bd_net [get_bd_pins $zero/dout] [get_bd_ports $stby]
+    } elseif {$smoke && $i == 0} {
+        connect_bd_net [get_bd_pins $zero/dout] [get_bd_ports $stby]   ;# as the old smoke build: tx undriven
+    } else {
+        connect_bd_net [get_bd_pins $one/dout] [get_bd_ports $tx] [get_bd_ports $stby]
+    }
 }
-connect_bd_net $can_irq_net [get_bd_pins $misc/can_irq]
+if {$smoke} {
+    for {set i 0} {$i < $::num_can} {incr i} { connect_bd_net [get_bd_pins $zero/dout] [get_bd_pins $irqs/In$i] }
+}
+connect_bd_net [get_bd_pins $irqs/dout] [get_bd_pins $misc/can_irq]
 
 # ---- interrupt ----------------------------------------------------------------
 set irq [create_bd_cell -type module -reference irq_bridge irq_bridge_0]
+set_property CONFIG.NUM_IRQ $::num_can $irq
 connect_bd_net [get_bd_pins $pcie/axi_aclk_out] [get_bd_pins $irq/clk]
 connect_bd_net [get_bd_pins $rst_pcie/peripheral_aresetn] [get_bd_pins $irq/resetn]
-connect_bd_net $can_irq_net [get_bd_pins $irq/irq_in]
+connect_bd_net [get_bd_pins $irqs/dout] [get_bd_pins $irq/irq_in]
 connect_bd_net [get_bd_pins $misc/irq_enable] [get_bd_pins $irq/irq_enable]
 connect_bd_net [get_bd_pins $pcie/MSI_enable] [get_bd_pins $irq/msi_enable]
 connect_bd_net [get_bd_pins $pcie/INTX_MSI_Grant] [get_bd_pins $irq/grant]
 connect_bd_net [get_bd_pins $irq/req] [get_bd_pins $pcie/INTX_MSI_Request]
 connect_bd_net [get_bd_pins $irq/msi_vector_num] [get_bd_pins $pcie/MSI_Vector_Num]
 
-# ---- address map: BAR0 -> 0x0000_0000 (32 KB), BAR1 -> 0x0001_0000 (16 KB) ----------
-# (axi_pcie maps PCIe BAR0/BAR1 to these AXI addresses, see PCIEBAR2AXIBAR_*)
+# ---- address map: BAR0 -> 0x0000_0000 (32 KB), BAR1 -> 0x0001_0000 (16 KB per core) --
+# (axi_pcie maps PCIe BAR0/BAR1 to these AXI addresses, see PCIEBAR2AXIBAR_*;
+# the driver expects the cores 0x4000 apart)
 set m_axi [get_bd_addr_spaces $pcie/M_AXI]
 create_bd_addr_seg -range 32K -offset 0x00000000 $m_axi [get_bd_addr_segs $misc/s_axi/reg0] SEG_misc_regs
-if {![info exists ::env(BD_SMOKE_TEST)]} {
-    create_bd_addr_seg -range 16K -offset 0x00010000 $m_axi [get_bd_addr_segs $can/s_axi/reg0] SEG_ctu_can_fd
+set i 0
+foreach can $cans {
+    create_bd_addr_seg -range 16K -offset [format 0x%08X [expr {0x00010000 + $i * 0x4000}]] $m_axi \
+        [get_bd_addr_segs $can/s_axi/reg0] SEG_ctu_can_fd_$i
+    incr i
 }
 
 # ---- optional debug: DEBUG_ILA=1 adds an ILA (free-licence flavour) -------------

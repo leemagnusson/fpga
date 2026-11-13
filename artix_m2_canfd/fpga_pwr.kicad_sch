@@ -57,7 +57,7 @@
 				(property "Value" "XC7A50T-CSG325" (at -19.05 -17.78 0) (effects (font (size 1.27 1.27))))
 				(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 				(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-				(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
+				(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
 				(symbol "XC7A50T-CSG325_1_1"
 					(rectangle (start -19.05 16.51) (end 19.05 -16.51) (stroke (width 0.254) (type default)) (fill (type background)))
 					(pin passive line (at -21.59 13.97 0) (length 2.54) (name "MGTPRXN0_216" (effects (font (size 1.27 1.27)))) (number "E3" (effects (font (size 1.27 1.27)))))
@@ -496,7 +496,7 @@
 			(at 62.23 127 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (35T/100T drop-in)"
+		(property "Description" "AMD Artix-7 FPGA, 52k LUT, 4 GTP, CSG325 (XC7A35T drop-in; 75T/100T are not offered in CSG325)"
 			(at 62.23 127 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -3130,7 +3130,7 @@
 			(at 234.95 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "4u7"
+		(property "Value" "100n"
 			(at 234.95 174.625 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3142,11 +3142,11 @@
 			(at 234.95 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Capacitor 4u7  0402"
+		(property "Description" "Capacitor 100n  0402"
 			(at 234.95 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "GRM155R60J475ME47D"
+		(property "MPN" "GRM155R71C104KA88D"
 			(at 234.95 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -3184,7 +3184,7 @@
 			(at 275.59 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "4u7"
+		(property "Value" "100n"
 			(at 275.59 174.625 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3196,11 +3196,11 @@
 			(at 275.59 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Capacitor 4u7  0402"
+		(property "Description" "Capacitor 100n  0402"
 			(at 275.59 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "GRM155R60J475ME47D"
+		(property "MPN" "GRM155R71C104KA88D"
 			(at 275.59 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -3292,7 +3292,7 @@
 			(at 356.87 168.275 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "100n"
+		(property "Value" "4u7"
 			(at 356.87 174.625 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3304,11 +3304,11 @@
 			(at 356.87 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Capacitor 100n  0402"
+		(property "Description" "Capacitor 4u7  0402"
 			(at 356.87 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "GRM155R71C104KA88D"
+		(property "MPN" "GRM155R60J475ME47D"
 			(at 356.87 171.45 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
@@ -3346,7 +3346,7 @@
 			(at 234.95 180.975 90)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "100n"
+		(property "Value" "4u7"
 			(at 234.95 187.325 90)
 			(effects (font (size 1.27 1.27)))
 		)
@@ -3358,11 +3358,11 @@
 			(at 234.95 184.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "Description" "Capacitor 100n  0402"
+		(property "Description" "Capacitor 4u7  0402"
 			(at 234.95 184.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)
-		(property "MPN" "GRM155R71C104KA88D"
+		(property "MPN" "GRM155R60J475ME47D"
 			(at 234.95 184.15 0)
 			(effects (font (size 1.27 1.27)) (justify left) (hide yes))
 		)

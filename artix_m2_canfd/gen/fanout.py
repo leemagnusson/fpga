@@ -174,6 +174,8 @@ def fanout_fingers(board, fp, occ):
     pad ends, where there is room every few fingers)."""
     pads = {int(p.GetNumber()): p for p in fp.Pads() if p.GetNumber().isdigit()}
     added = 0
+    pair_x = [pcbnew.ToMM(p.GetPosition().x) for p in pads.values() if p.GetNetname().startswith("PCIE_") and
+              p.GetNetname().rstrip("_C").endswith(("_P", "_N"))]
     for row_layer, first in ((pcbnew.F_Cu, 1), (pcbnew.B_Cu, 2)):
         ltag = "F" if row_layer == pcbnew.F_Cu else "B"
         nums = [n for n in sorted(pads) if n % 2 == first % 2]
@@ -198,8 +200,10 @@ def fanout_fingers(board, fp, occ):
             mid = pts[len(pts) // 2]
             placed = False
             for dy in (1.3, 1.9, 2.5, 3.1):
-                for dx in (0.0, 0.25, -0.25, 0.5, -0.5):
+                for dx in (0.0, 0.25, -0.25, 0.5, -0.5, 0.75, -0.75):
                     vx, vy = mid[0] + dx, pts[0][1] - half - dy
+                    if any(abs(vx - sx) < 0.45 for sx in pair_x):      # keep the PCIe pairs' way to their fingers clear
+                        continue
                     if plane_under(vx, vy, name) and occ.free(vx, vy, net) and occ.segment_free(mid[0], mid[1], vx, vy, net, 0.25, ltag):
                         add_via(board, vx, vy, net)
                         add_track(board, mid[0], mid[1], vx, vy, 0.25, row_layer, net)

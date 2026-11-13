@@ -3,7 +3,7 @@
 	(generator "artix_m2_canfd")
 	(generator_version "9.0")
 	(layer "F.Cu")
-	(descr "SOT-23 3-pin (pins 1,2 left; 3 right)")
+	(descr "SOT-23 3-pin (pins 1,2 left; 3 right, centred)")
 	(attr smd)
 	(property "Reference" "REF**"
 		(at 0 -3 0)
