@@ -113,8 +113,10 @@ are polarity-swapped**, so that nothing has to cross on the board:
 | 2 | 1 | A4 / A3 | F1 (MGTPTXN1) / F2 (MGTPTXP1) |
 | 3 | 0 | E4 / E3 | H1 (MGTPTXN0) / H2 (MGTPTXP0) |
 
-In the FPGA design place lane n's GTPE2_CHANNEL on channel 3-n (LOC
-constraints, as the LiteFury design already does for its own lane order).
+`python3 gen/xdc.py` writes the Vivado constraints for all FPGA pins from
+the routed board into `../litefury_canfd/constraints/artix_m2*.xdc` (build
+with `BOARD=artix_m2`, see that README); `--check` reports drift. It places
+lane n's GTPE2_CHANNEL on channel 3-n with a LOC constraint.
 The transmit polarity needs nothing: the host's receivers detect and
 correct an inverted lane during link training (PCIe base spec, lane
 polarity inversion). REFCLK is on MGTREFCLK0 (D6/D5), not inverted.

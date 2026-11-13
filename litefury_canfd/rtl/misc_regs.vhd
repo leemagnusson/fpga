@@ -3,7 +3,7 @@
 -- PCIe card, whose BAR0 holds an ID word and an Avalon-to-PCIe bridge's
 -- interrupt enable register):
 --
---   0x0000  ID            read-only, bits 3:0 = number of CAN cores (1)
+--   0x0000  ID            read-only, bits 3:0 = number of CAN cores (generic NUM_CORES)
 --   0x4050  A2P_IE        read/write, bit 0 enables the interrupt to the host
 --   0x4054  LEDS          read/write, bits 3:0 drive the user LEDs directly
 --                         when bit 31 is set (otherwise status is shown)
@@ -18,6 +18,9 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity misc_regs is
+    generic (
+        NUM_CORES : natural range 1 to 15 := 1
+    );
     port (
         s_axi_aclk    : in  std_logic;
         s_axi_aresetn : in  std_logic;
@@ -43,7 +46,7 @@ entity misc_regs is
         irq_enable    : out std_logic;
         timestamp     : out std_logic_vector(63 downto 0);
         link_up       : in  std_logic;
-        can_irq       : in  std_logic;
+        can_irq       : in  std_logic_vector(NUM_CORES - 1 downto 0);
         leds          : out std_logic_vector(3 downto 0)
     );
 
@@ -111,7 +114,7 @@ begin
         if rising_edge(s_axi_aclk) then
             link_up_s <= link_up_s(0) & link_up;
             ts <= ts + 1;
-            if can_irq = '1' then
+            if unsigned(can_irq) /= 0 then
                 irq_stretch <= (others => '1');
             elsif irq_stretch /= 0 then
                 irq_stretch <= irq_stretch - 1;
@@ -162,7 +165,7 @@ begin
                     arready <= '1';
                     rvalid  <= '1';
                     case unsigned(s_axi_araddr) is
-                        when ADDR_ID     => rdata <= x"00000001";
+                        when ADDR_ID     => rdata <= std_logic_vector(to_unsigned(NUM_CORES, 32));
                         when ADDR_A2P_IE => rdata <= a2p_ie;
                         when ADDR_LEDS   => rdata <= led_reg;
                         when ADDR_TS_LO  => rdata <= std_logic_vector(ts(31 downto 0));
