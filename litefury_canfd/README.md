@@ -126,8 +126,12 @@ the TX stamp is the SOF of the attempt that went through. The mainline driver di
 knows nothing of the TX latches, so `sw/driver/` carries the kernel v7.0
 driver with a small patch: it keeps the RX stamp, reads the TX latch for the
 echo frame, and advertises hardware timestamping through the kernel's
-generic CAN helpers. Timestamps are raw hardware time (the counter starts at
-FPGA configuration); there is no PTP clock yet.
+generic CAN helpers. The driver gives the timestamps in system time
+(`CLOCK_REALTIME`): every 10 ms at most it reads the counter between two
+readings of the system clock and keeps the difference, which it adds to each
+stamp. A socket gets that as its hardware time, so a frame's hardware and
+software times compare directly, and `motor_util time_sync` (motor-realtime)
+uses it as the time a SYNC was sent. There is no PTP clock.
 
 ```sh
 cd sw/driver && make -C /lib/modules/$(uname -r)/build M=$PWD modules

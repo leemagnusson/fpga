@@ -154,17 +154,65 @@ static u32 ctucan_read32(struct ctucan_priv *priv, enum ctu_can_fd_can_registers
 	return priv->read_reg(priv, reg);
 }
 
+/* How long the counter's offset to the system clock is used before it is read
+ * again. The two run apart by a crystal's tolerance and by what the system
+ * clock is slewed: 100 ppm over this time is 1 us.
+ */
+#define CTUCANFD_HWTS_SYNC_MS		10
+
+static u64 ctucan_hwts_to_ns(struct ctucan_priv *priv, u64 ts)
+{
+	return mul_u64_u64_div_u64(ts, NSEC_PER_SEC, priv->hwts_rate);
+}
+
 /**
- * ctucan_hwts_to_ktime() - Convert a raw hardware timestamp to nanoseconds
+ * ctucan_hwts_sync() - Relate the hardware timestamp counter to CLOCK_REALTIME
+ * @priv:	Pointer to private data
+ *
+ * Reads the counter between two readings of the system clock, with
+ * interrupts off so that nothing comes in between, and takes the counter
+ * value as that of the middle of the two. The low word is the one that is
+ * timed; the high word is read on either side of it and the whole repeated
+ * if it changed (every 54 s at 80 MHz).
+ */
+static void ctucan_hwts_sync(struct ctucan_priv *priv)
+{
+	unsigned long flags;
+	ktime_t before, after;
+	u32 high, low;
+
+	local_irq_save(flags);
+	do {
+		high = ctucan_read32(priv, CTUCANFD_TIMESTAMP_HIGH);
+		before = ktime_get_real();
+		low = ctucan_read32(priv, CTUCANFD_TIMESTAMP_LOW);
+		after = ktime_get_real();
+	} while (high != ctucan_read32(priv, CTUCANFD_TIMESTAMP_HIGH));
+	local_irq_restore(flags);
+
+	atomic64_set(&priv->hwts_offset,
+		     ktime_to_ns(before) + ktime_to_ns(ktime_sub(after, before)) / 2 -
+		     ctucan_hwts_to_ns(priv, (u64)high << 32 | low));
+	priv->hwts_synced = jiffies;
+}
+
+/**
+ * ctucan_hwts_to_ktime() - Convert a hardware timestamp to system time
  * @priv:	Pointer to private data
  * @ts:		64-bit free-running counter value captured by the core
  *
- * Return: raw hardware time (SOF_TIMESTAMPING_RAW_HARDWARE), not aligned to
- *	   any system clock.
+ * Called from the RX poll and from the TX done interrupt. Two of them may
+ * read the offset at once: either result is right.
+ *
+ * Return: the time of the timestamp in CLOCK_REALTIME. It is what a socket
+ *	   gets as the hardware time (SOF_TIMESTAMPING_RAW_HARDWARE), which is
+ *	   therefore not the counter's own time.
  */
 static ktime_t ctucan_hwts_to_ktime(struct ctucan_priv *priv, u64 ts)
 {
-	return ns_to_ktime(mul_u64_u64_div_u64(ts, NSEC_PER_SEC, priv->hwts_rate));
+	if (time_after(jiffies, priv->hwts_synced + msecs_to_jiffies(CTUCANFD_HWTS_SYNC_MS)))
+		ctucan_hwts_sync(priv);
+	return ns_to_ktime(ctucan_hwts_to_ns(priv, ts) + atomic64_read(&priv->hwts_offset));
 }
 
 static void ctucan_write_txt_buf(struct ctucan_priv *priv, enum ctu_can_fd_can_registers buf_base,
@@ -1515,7 +1563,8 @@ int ctucan_probe_common(struct device *dev, void __iomem *addr, int irq, unsigne
 		if (rate && nbuf >= ntxbufs) {
 			priv->hwts = true;
 			priv->hwts_rate = rate;
-			dev_info(dev, "hardware timestamps enabled, counter %u Hz\n", rate);
+			ctucan_hwts_sync(priv);
+			dev_info(dev, "hardware timestamps enabled, counter %u Hz, in system time\n", rate);
 		} else {
 			dev_warn(dev, "timestamp capture block unusable (rate %u, %u latches)\n",
 				 rate, nbuf);

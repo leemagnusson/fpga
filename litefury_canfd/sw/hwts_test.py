@@ -5,8 +5,8 @@ Sends N frames and prints, for each, the hardware TX timestamp (from the
 socket error queue, SOF_TIMESTAMPING_TX_HARDWARE) and the hardware RX
 timestamp of the frame as it came back over the bus (needs the card's RX to
 see its own TX, e.g. a TX-to-RX jumper with 'loopback on presume-ack on', or a
-second node echoing). Raw hardware time is the card's free-running counter,
-so only differences are meaningful.
+second node echoing). The hardware time is the card's counter as the driver
+relates it to the system clock: CLOCK_REALTIME at the start of the frame.
 
 Usage: hwts_test.py [ifname] [count]
 """
