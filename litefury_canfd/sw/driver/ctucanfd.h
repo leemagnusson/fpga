@@ -52,10 +52,14 @@ struct ctucan_priv {
 
 	/* Hardware timestamping: set when the TX timestamp capture block
 	 * (LiteFury CAN FD card, offset 0x1000 in the core window) is found.
-	 * hwts_rate is the timestamp counter frequency in Hz.
+	 * hwts_rate is the timestamp counter frequency in Hz. hwts_offset is
+	 * CLOCK_REALTIME minus the counter's time, in ns, as it was read at
+	 * hwts_synced (jiffies): see ctucan_hwts_sync().
 	 */
 	bool hwts;
 	u32 hwts_rate;
+	atomic64_t hwts_offset;
+	unsigned long hwts_synced;
 
 	struct list_head peers_on_pdev;
 };
