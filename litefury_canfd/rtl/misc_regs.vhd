@@ -26,6 +26,10 @@
 --                         0x474F4C44 "GOLD" for the bootloader image, else a build time
 --   0x4074  REBOOT        write 0xB7aaaaaa: reconfigure the FPGA from flash
 --                         address aaaaaa (0 = as at power-up)
+--   0x4078  MONITOR_TEMP  read-only, bits 15:4: die temperature code
+--                         (C = code * 503.975 / 4096 - 273.15); 0 = not there
+--   0x407C  MONITOR_VCC   read-only, bits 15:4: VCCINT code, bits 31:20:
+--                         VCCAUX code (V = code * 3 / 4096)
 --
 -- Bus accesses wait while a flash transfer is running (at most 3.2 us), so the
 -- host needs no busy polling, and the AUTO bits make a bulk read one bus read
@@ -107,6 +111,8 @@ architecture rtl of misc_regs is
     constant ADDR_FL_RX  : unsigned(15 downto 0) := x"406C";
     constant ADDR_IMAGE  : unsigned(15 downto 0) := x"4070";
     constant ADDR_REBOOT : unsigned(15 downto 0) := x"4074";
+    constant ADDR_TEMP   : unsigned(15 downto 0) := x"4078";
+    constant ADDR_VCC    : unsigned(15 downto 0) := x"407C";
 
     signal fl_ctl    : std_logic_vector(7 downto 0) := (others => '0');
     signal fl_tx     : std_logic_vector(31 downto 0) := (others => '0');
@@ -116,6 +122,7 @@ architecture rtl of misc_regs is
     signal fl_go     : std_logic;
     signal fl_id     : std_logic_vector(31 downto 0) := (others => '0');
     signal image_id  : std_logic_vector(31 downto 0) := (others => '0');
+    signal temp_raw, vccint_raw, vccaux_raw : std_logic_vector(15 downto 0) := (others => '0');
     signal reboot    : std_logic := '0';
     signal reboot_addr : std_logic_vector(23 downto 0) := (others => '0');
     signal rst       : std_logic;
@@ -165,6 +172,7 @@ begin
                 tx => fl_tx, rx => fl_rx, busy => fl_busy,
                 reboot => reboot, reboot_addr => reboot_addr,
                 image_id => image_id,
+                temp_raw => temp_raw, vccint_raw => vccint_raw, vccaux_raw => vccaux_raw,
                 flash_cs_n => flash_cs_n, flash_mosi => flash_mosi, flash_miso => flash_miso,
                 flash_wp_n => flash_wp_n, flash_hold_n => flash_hold_n);
     end generate;
@@ -269,6 +277,8 @@ begin
                         when ADDR_FL_TX  => rdata <= fl_tx;
                         when ADDR_FL_RX  => rdata <= fl_rx;
                         when ADDR_IMAGE  => rdata <= image_id;
+                        when ADDR_TEMP   => rdata <= x"0000" & temp_raw;
+                        when ADDR_VCC    => rdata <= vccaux_raw & vccint_raw;
                         when others      => rdata <= (others => '0');
                     end case;
                 end if;

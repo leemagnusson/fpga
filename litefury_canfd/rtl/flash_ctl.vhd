@@ -13,6 +13,10 @@
 --   address (0 = the normal power-up path).
 -- * image_id: the bitstream's USR_ACCESS word (BITSTREAM.CONFIG.USR_ACCESS),
 --   which tells the host which image is running.
+-- * On-chip monitor (XADC in its default mode: die temperature and the
+--   VCCINT/VCCAUX supplies): the three status registers are read over the DRP,
+--   each about 400 times a second, and handed out raw (12-bit code in bits 15:4;
+--   UG480: temperature = code * 503.975 / 4096 - 273.15 C, supply = code * 3 V / 4096).
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -37,6 +41,10 @@ entity flash_ctl is
         reboot_addr  : in  std_logic_vector(23 downto 0);
 
         image_id     : out std_logic_vector(31 downto 0);
+
+        temp_raw     : out std_logic_vector(15 downto 0);
+        vccint_raw   : out std_logic_vector(15 downto 0);
+        vccaux_raw   : out std_logic_vector(15 downto 0);
 
         flash_cs_n   : out std_logic;
         flash_mosi   : out std_logic;
@@ -77,6 +85,13 @@ architecture rtl of flash_ctl is
     signal icap_csib : std_logic := '1';
     signal icap_rdwrb : std_logic := '1';
     signal icap_i    : std_logic_vector(31 downto 0) := (others => '1');
+
+    signal mon_tick  : unsigned(15 downto 0) := (others => '0');
+    signal mon_ch    : unsigned(1 downto 0) := "00";
+    signal mon_den   : std_logic := '0';
+    signal mon_drdy  : std_logic;
+    signal mon_do    : std_logic_vector(15 downto 0);
+    signal mon_daddr : std_logic_vector(6 downto 0);
 
 begin
 
@@ -164,6 +179,44 @@ begin
             end if;
         end if;
     end process;
+
+    -- One DRP read every 2^16 clocks, round the three status registers.
+    mon_daddr <= "00000" & std_logic_vector(mon_ch);
+    monitor : process (clk) is
+    begin
+        if rising_edge(clk) then
+            mon_tick <= mon_tick + 1;
+            mon_den  <= '0';
+            if mon_tick = 0 then
+                mon_den <= '1';
+            end if;
+            if mon_drdy = '1' then
+                case mon_ch is
+                    when "00"   => temp_raw   <= mon_do;
+                    when "01"   => vccint_raw <= mon_do;
+                    when others => vccaux_raw <= mon_do;
+                end case;
+                if mon_ch = "10" then
+                    mon_ch <= "00";
+                else
+                    mon_ch <= mon_ch + 1;
+                end if;
+            end if;
+        end if;
+    end process;
+
+    -- Default mode (INIT_41 = 0): internal sensors with calibration, no
+    -- external inputs. INIT_42: ADC clock = clk / 4 = 20 MHz (1 to 26 MHz).
+    xadc_i : XADC
+        generic map (INIT_40 => x"0000", INIT_41 => x"0000", INIT_42 => x"0400")
+        port map (
+            DCLK => clk, DEN => mon_den, DWE => '0', DADDR => mon_daddr,
+            DI => x"0000", DO => mon_do, DRDY => mon_drdy,
+            RESET => '0', CONVST => '0', CONVSTCLK => '0',
+            VP => '0', VN => '0', VAUXP => x"0000", VAUXN => x"0000",
+            ALM => open, BUSY => open, CHANNEL => open, EOC => open, EOS => open,
+            JTAGBUSY => open, JTAGLOCKED => open, JTAGMODIFIED => open,
+            MUXADDR => open, OT => open);
 
     icap : ICAPE2
         generic map (ICAP_WIDTH => "X32")

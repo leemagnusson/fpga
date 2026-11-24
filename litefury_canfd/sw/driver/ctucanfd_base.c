@@ -748,7 +748,7 @@ static void ctucan_read_rx_frame(struct ctucan_priv *priv, struct canfd_frame *c
 	}
 }
 
-static void ctucan_tx_done(struct net_device *ndev, ktime_t before, bool all);
+static int ctucan_tx_done(struct net_device *ndev, ktime_t before, int max);
 
 /**
  * ctucan_rx() -  Called from CAN ISR to complete the received frame processing
@@ -759,8 +759,9 @@ static void ctucan_tx_done(struct net_device *ndev, ktime_t before, bool all);
  * Return: 1 when frame is passed to the network layer, 0 when the first frame word is read but
  *	   system is out of free SKBs temporally and left code to resolve SKB allocation later,
  *         -%EAGAIN in a case of empty Rx FIFO.
+ *         *echoes: echoes of transmitted frames handed up before the frame
  */
-static int ctucan_rx(struct net_device *ndev)
+static int ctucan_rx(struct net_device *ndev, int *echoes)
 {
 	struct ctucan_priv *priv = netdev_priv(ndev);
 	struct net_device_stats *stats = &ndev->stats;
@@ -797,20 +798,16 @@ static int ctucan_rx(struct net_device *ndev)
 		skb_hwtstamps(skb)->hwtstamp = t;
 		/* Our own frames that started before this one go up first */
 		if ((int)(priv->txb_head - priv->txb_tail) > 0)
-			ctucan_tx_done(ndev, t, false);
+			*echoes = ctucan_tx_done(ndev, t, 0);
+		/* the queue's poll does the statistics */
+		if (can_rx_offload_queue_tail(&priv->offload, skb))
+			stats->rx_dropped++;
+		return 1;
 	}
 
 	stats->rx_bytes += cf->len;
 	stats->rx_packets++;
-	/* Echoes of transmitted frames reach the stack through netif_rx()
-	 * (can_get_echo_skb). With hwts they are produced here in the poll,
-	 * in between the received frames, so those take the same way to keep
-	 * the order.
-	 */
-	if (priv->hwts)
-		netif_rx(skb);
-	else
-		netif_receive_skb(skb);
+	netif_receive_skb(skb);
 
 	return 1;
 }
@@ -1034,19 +1031,57 @@ static void ctucan_err_interrupt(struct net_device *ndev, u32 isr)
  *
  * Return: Number of packets received
  */
+/**
+ * ctucan_tx_finished() - Count the finished TXT buffers, oldest first
+ * @priv:	Pointer to private data
+ *
+ * One read of the status of all buffers.
+ *
+ * Return: Number of buffers that ctucan_tx_done() can complete
+ */
+static int ctucan_tx_finished(struct ctucan_priv *priv)
+{
+	unsigned long flags;
+	u32 tx_status;
+	int n = 0;
+
+	spin_lock_irqsave(&priv->tx_lock, flags);
+	tx_status = ctucan_read32(priv, CTUCANFD_TX_STATUS);
+	while ((int)(priv->txb_head - priv->txb_tail) > n) {
+		u32 s = (tx_status >> (((priv->txb_tail + n) % priv->ntxbufs) * 4)) & 0x7;
+
+		if (s != TXT_TOK && s != TXT_ERR && s != TXT_ABT)
+			break;
+		n++;
+	}
+	spin_unlock_irqrestore(&priv->tx_lock, flags);
+
+	return n;
+}
+
 static int ctucan_rx_poll(struct napi_struct *napi, int quota)
 {
 	struct net_device *ndev = napi->dev;
 	struct ctucan_priv *priv = netdev_priv(ndev);
+	/* With hwts the echoes of transmitted frames are produced here too
+	 * (ctucan_tx_done). They count as work, and a frame is only read while
+	 * there is room for it and the echoes that may have to go before it:
+	 * the queue they all go into is emptied at this same rate.
+	 */
+	int room = priv->hwts ? priv->ntxbufs : 0;
 	int work_done = 0;
+	bool idle;
 	u32 status;
 	u32 framecnt;
 	int res = 1;
 
 	framecnt = FIELD_GET(REG_RX_STATUS_RXFRC, ctucan_read32(priv, CTUCANFD_RX_STATUS));
-	while (framecnt && work_done < quota && res > 0) {
-		res = ctucan_rx(ndev);
-		work_done++;
+receive:
+	while (framecnt && work_done + room < quota && res > 0) {
+		int echoes = 0;
+
+		res = ctucan_rx(ndev, &echoes);
+		work_done += 1 + echoes;
 		framecnt = FIELD_GET(REG_RX_STATUS_RXFRC, ctucan_read32(priv, CTUCANFD_RX_STATUS));
 	}
 
@@ -1073,23 +1108,50 @@ static int ctucan_rx_poll(struct napi_struct *napi, int quota)
 		ctucan_write32(priv, CTUCANFD_COMMAND, REG_COMMAND_CDO);
 	}
 
-	/* Nothing more received: whatever has been transmitted can go up now */
-	if (priv->hwts && !framecnt && (int)(priv->txb_head - priv->txb_tail) > 0)
-		ctucan_tx_done(ndev, 0, true);
+	idle = !framecnt && res != 0;
+	if (priv->hwts) {
+		/* Nothing more received: what has been transmitted can go up
+		 * now, in the next round if there is no room left in this one.
+		 * First note which buffers have finished, then look at the
+		 * receive buffer once more: a frame that was on the bus before
+		 * one of those is in it by then and has to go first (it may
+		 * have arrived since the count above was read; that was seen
+		 * a few times in 10000 frames with the bus saturated both ways).
+		 */
+		if (idle && (int)(priv->txb_head - priv->txb_tail) > 0) {
+			if (work_done + room <= quota) {
+				int n = ctucan_tx_finished(priv);
 
-	/* A poll that used its whole quota must stay scheduled: completing it
-	 * and then returning the quota puts the NAPI instance on the poll list
-	 * twice (list corruption in net_rx_action, seen under two-way load when
-	 * the FIFO ran empty on exactly the last frame of the quota).
-	 */
-	if (!framecnt && res != 0 && work_done < quota) {
-		if (napi_complete_done(napi, work_done)) {
-			/* Clear and enable RBNEI. It is level-triggered, so
-			 * there is no race condition.
-			 */
-			ctucan_write32(priv, CTUCANFD_INT_STAT, REG_INT_STAT_RBNEI);
-			ctucan_write32(priv, CTUCANFD_INT_MASK_CLR, REG_INT_STAT_RBNEI);
+				if (n) {
+					framecnt = FIELD_GET(REG_RX_STATUS_RXFRC,
+							     ctucan_read32(priv, CTUCANFD_RX_STATUS));
+					if (framecnt)
+						goto receive;
+					work_done += ctucan_tx_done(ndev, 0, n);
+				}
+			} else {
+				idle = false;
+			}
 		}
+		can_rx_offload_irq_finish(&priv->offload);
+	}
+
+	/* A poll that is not completed must report its whole quota to stay
+	 * scheduled, and one that used its whole quota must not be completed:
+	 * mainline completed it and still returned the quota when the FIFO
+	 * ran empty on exactly the last frame, which puts the NAPI instance
+	 * on the poll list twice (list corruption in net_rx_action, seen
+	 * under two-way load).
+	 */
+	if (!idle || work_done >= quota)
+		return quota;
+
+	if (napi_complete_done(napi, work_done)) {
+		/* Clear and enable RBNEI. It is level-triggered, so
+		 * there is no race condition.
+		 */
+		ctucan_write32(priv, CTUCANFD_INT_STAT, REG_INT_STAT_RBNEI);
+		ctucan_write32(priv, CTUCANFD_INT_MASK_CLR, REG_INT_STAT_RBNEI);
 	}
 
 	return work_done;
@@ -1113,8 +1175,8 @@ static void ctucan_rotate_txb_prio(struct net_device *ndev)
 /**
  * ctucan_tx_done() - Complete finished TXT buffers
  * @ndev:	net_device pointer
- * @before:	with hwts: only frames that started before this time
- * @all:	no such limit
+ * @before:	with hwts and max == 0: only frames that started before this time
+ * @max:	if not 0: this many buffers at most, whatever their time
  *
  * Mainline calls this from the interrupt handler and so hands the echo of a
  * transmitted frame to the stack as soon as the transmit interrupt is served,
@@ -1124,9 +1186,13 @@ static void ctucan_rotate_txb_prio(struct net_device *ndev)
  * timestamps for both directions (hwts) the interrupt handler only schedules
  * NAPI, and the poll calls this before every received frame and when the
  * receive buffer is empty, so that echoes and received frames go up in the
- * order of their start-of-frame timestamps.
+ * order of their start-of-frame timestamps. Both go through priv->offload,
+ * not through netif_rx(): the per-CPU backlog behind that is emptied at the
+ * rate of one port's poll and overflowed with two ports under load.
+ *
+ * Return: with hwts, the number of echoes handed up
  */
-static void ctucan_tx_done(struct net_device *ndev, ktime_t before, bool all)
+static int ctucan_tx_done(struct net_device *ndev, ktime_t before, int max)
 {
 	struct ctucan_priv *priv = netdev_priv(ndev);
 	struct net_device_stats *stats = &ndev->stats;
@@ -1135,6 +1201,9 @@ static void ctucan_tx_done(struct net_device *ndev, ktime_t before, bool all)
 	unsigned long flags;
 	enum ctucan_txtb_status txtb_status;
 	u32 txtb_id;
+	int echoes = 0;
+	int done = 0;
+	bool all = max > 0;
 
 	/*  read tx_status
 	 *  if txb[n].finished (bit 2)
@@ -1147,6 +1216,8 @@ static void ctucan_tx_done(struct net_device *ndev, ktime_t before, bool all)
 
 		some_buffers_processed = false;
 		while ((int)(priv->txb_head - priv->txb_tail) > 0) {
+			if (priv->hwts && all && done >= max)
+				goto clear;
 			txtb_id = priv->txb_tail % priv->ntxbufs;
 			txtb_status = ctucan_get_tx_status(priv, txtb_id);
 
@@ -1171,11 +1242,27 @@ static void ctucan_tx_done(struct net_device *ndev, ktime_t before, bool all)
 					if (!all && !ktime_before(priv->tx_peek_ts, before))
 						goto clear;
 					priv->tx_peeked = false;
-					if (priv->can.echo_skb[txtb_id])
+					if (priv->can.echo_skb[txtb_id]) {
+						u32 qlen = skb_queue_len(&priv->offload.skb_irq_queue);
+						unsigned int len;
+
 						skb_hwtstamps(priv->can.echo_skb[txtb_id])->hwtstamp =
 							priv->tx_peek_ts;
+						len = can_rx_offload_get_echo_skb_queue_tail(&priv->offload,
+											     txtb_id, NULL);
+						stats->tx_bytes += len;
+						if (skb_queue_len(&priv->offload.skb_irq_queue) != qlen) {
+							/* The queue's poll counts all it
+							 * delivers as received.
+							 */
+							stats->rx_packets--;
+							stats->rx_bytes -= len;
+							echoes++;
+						}
+					}
+				} else {
+					stats->tx_bytes += can_get_echo_skb(ndev, txtb_id, NULL);
 				}
-				stats->tx_bytes += can_get_echo_skb(ndev, txtb_id, NULL);
 				stats->tx_packets++;
 				break;
 			case TXT_ERR:
@@ -1212,11 +1299,12 @@ static void ctucan_tx_done(struct net_device *ndev, ktime_t before, bool all)
 							   txtb_id, txtb_status);
 					spin_unlock_irqrestore(&priv->tx_lock, flags);
 					/* do not clear nor wake */
-					return;
+					return echoes;
 				}
 				goto clear;
 			}
 			priv->txb_tail++;
+			done++;
 			first = false;
 			some_buffers_processed = true;
 			/* Adjust priorities *before* marking the buffer as empty. */
@@ -1248,6 +1336,8 @@ clear:
 		netif_wake_queue(ndev);
 
 	spin_unlock_irqrestore(&priv->tx_lock, flags);
+
+	return echoes;
 }
 
 /**
@@ -1301,7 +1391,7 @@ static irqreturn_t ctucan_interrupt(int irq, void *dev_id)
 				napi_schedule(&priv->napi);
 			} else {
 				/* Cleared inside */
-				ctucan_tx_done(ndev, 0, true);
+				ctucan_tx_done(ndev, 0, INT_MAX);
 			}
 		}
 
@@ -1414,6 +1504,7 @@ static int ctucan_open(struct net_device *ndev)
 	}
 
 	netdev_info(ndev, "ctu_can_fd device registered\n");
+	can_rx_offload_enable(&priv->offload);
 	napi_enable(&priv->napi);
 	netif_start_queue(ndev);
 
@@ -1444,6 +1535,9 @@ static int ctucan_close(struct net_device *ndev)
 	napi_disable(&priv->napi);
 	ctucan_chip_stop(ndev);
 	free_irq(ndev->irq, ndev);
+	can_rx_offload_disable(&priv->offload);
+	skb_queue_purge(&priv->offload.skb_queue);
+	__skb_queue_purge(&priv->offload.skb_irq_queue);
 	close_candev(ndev);
 
 	pm_runtime_put(priv->dev);
@@ -1652,6 +1746,8 @@ int ctucan_probe_common(struct device *dev, void __iomem *addr, int irq, unsigne
 	}
 
 	netif_napi_add(ndev, &priv->napi, ctucan_rx_poll);
+	/* used with hwts only; its NAPI instance goes away with the netdev */
+	can_rx_offload_add_manual(ndev, &priv->offload, NAPI_POLL_WEIGHT);
 
 	ret = register_candev(ndev);
 	if (ret) {

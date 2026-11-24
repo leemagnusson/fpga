@@ -7,6 +7,8 @@
 ;     svf <svf>      play an SVF file, e.g. flash programming written by gen_svf.tcl,
 ;                    then reconfigure the FPGA from flash
 ;     reboot         reconfigure the FPGA from flash (JPROGRAM)
+;     xadc           read the on-chip monitor (XADC): temperature, VCCINT, VCCAUX as raw 16-bit
+;                    status registers (decimal: address, value); works with any design, also with none (UG480, JTAG DRP)
 ;
 ; TRACE32's own chain detection does not work on a chain without a CPU, so
 ; this drives the TAP by hand. The FPGA's 6-bit IR capture is
@@ -73,6 +75,37 @@ ELSE IF "&mode"=="reboot"
 (
   GOSUB Jprogram
   GOSUB Settle
+)
+ELSE IF "&mode"=="xadc"
+(
+  ; XADC_DRP instruction (0x37), then 32-bit DRP commands: read = 0x04000000 + address * 0x10000.
+  ; The result of a read is shifted out by the next access.
+  LOCAL &a &r
+  JTAG.LOCK
+  JTAG.PIN ENable
+  JTAG.SHIFTTMS 1 1 1 1 1 0
+  JTAG.SHIFTTMS 1 1 0 0
+  JTAG.SHIFTREG 1 1 1 0 1 1
+  JTAG.SHIFTTMS 1 0
+  &a=0
+  WHILE &a<0x28
+  (
+    IF (&a<3)||(&a>=0x20&&&a<=0x26)
+    (
+      JTAG.SHIFTTMS 1 0 0
+      JTAG.SHIFTREG %Long (0x04000000+&a*0x10000)
+      JTAG.SHIFTTMS 1 0
+      JTAG.SHIFTTMS 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+      JTAG.SHIFTTMS 1 0 0
+      JTAG.SHIFTREG %Long 0x0
+      &r=JTAG.SHIFT()&0xFFFF
+      JTAG.SHIFTTMS 1 0
+      PRINT "xadc " %Decimal &a " " %Decimal &r
+    )
+    &a=&a+1
+  )
+  JTAG.SHIFTTMS 1 1 1 1 1 0
+  JTAG.UNLOCK
 )
 AREA.CLOSE LOG
 QUIT &rc

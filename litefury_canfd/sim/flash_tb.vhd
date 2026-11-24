@@ -138,6 +138,10 @@ begin
         chk("ICAP w6", icap_log(24) & icap_log(25) & icap_log(26) & icap_log(27), x"0000000F");
         chk("ICAP w7", icap_log(28) & icap_log(29) & icap_log(30) & icap_log(31), x"20000000");
         chk("ICAP nothing after", icap_log(32) & icap_log(33) & icap_log(34) & icap_log(35), x"00000000");
+        -- on-chip monitor: the stub XADC has been read round all three registers by now (2 ms)
+        wait for 2500 us;
+        rd(x"4078", v); chk("MONITOR_TEMP", v, x"00009770");
+        rd(x"407C", v); chk("MONITOR_VCC", v, x"99905550");
         report "DONE";
         done <= true; wait;
     end process;

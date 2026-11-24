@@ -21,6 +21,7 @@
 #define __CTUCANFD__
 
 #include <linux/netdevice.h>
+#include <linux/can/rx-offload.h>
 #include <linux/can/dev.h>
 #include <linux/list.h>
 
@@ -29,7 +30,7 @@ enum ctu_can_fd_can_registers;
 /* Version of this out-of-tree copy (mainline driver of Linux 7.0 plus the
  * changes listed in the README of litefury_canfd); also the DKMS version.
  */
-#define CTUCANFD_FPGA2_VERSION "7.0.2"
+#define CTUCANFD_FPGA2_VERSION "7.0.4"
 
 struct ctucan_priv {
 	struct can_priv can; /* must be first member! */
@@ -62,6 +63,10 @@ struct ctucan_priv {
 	 */
 	bool tx_peeked;
 	ktime_t tx_peek_ts;
+	/* ... and both are handed to the stack through this queue, which has
+	 * its own NAPI instance. Only the receive poll puts frames into it.
+	 */
+	struct can_rx_offload offload;
 
 	/* Bus errors still to be reported in the kernel log after a start
 	 * (ctucan_berr_diag); the bus error interrupt is masked at zero.

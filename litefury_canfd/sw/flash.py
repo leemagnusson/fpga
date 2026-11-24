@@ -24,7 +24,7 @@ Needs read/write access to the card's BAR0 (/sys/bus/pci/devices/<card>/resource
 run as root, or install the udev rule once with sw/host-setup.sh.
 
 Registers (BAR0, rtl/misc_regs.vhd): 0x4060 signature, 0x4064 control, 0x4068 TX,
-0x406C RX, 0x4070 image ID, 0x4074 reboot.
+0x406C RX, 0x4070 image ID, 0x4074 reboot, 0x4078/0x407C temperature and supplies.
 """
 import argparse
 import ctypes
@@ -35,6 +35,7 @@ import sys
 import time
 
 FL_ID, FL_CTL, FL_TX, FL_RX, IMAGE_ID, REBOOT = 0x4060, 0x4064, 0x4068, 0x406C, 0x4070, 0x4074
+MON_TEMP, MON_VCC = 0x4078, 0x407C
 SIGNATURE = 0x464C5348          # "FLSH"
 GOLD = 0x474F4C44               # "GOLD": USR_ACCESS of the bootloader image
 CS, GO, AUTO_RX, AUTO_TX = 0x01, 0x10, 0x20, 0x40
@@ -82,7 +83,7 @@ class Card:
         # ctypes reads and writes a c_uint32 as exactly one 32-bit bus access, which matters here
         # (a read of FLASH_RX can start a transfer); slicing the mmap may access it twice.
         self.reg = {off: ctypes.c_uint32.from_buffer(self.mm, off)
-                    for off in (0, FL_ID, FL_CTL, FL_TX, FL_RX, IMAGE_ID, REBOOT)}
+                    for off in (0, FL_ID, FL_CTL, FL_TX, FL_RX, IMAGE_ID, REBOOT, MON_TEMP, MON_VCC)}
         if self.rd(0) == 0xFFFFFFFF:
             die("the card answers all ones: its memory space is not enabled (is the driver bound? "
                 f"as root: echo 1 > {path}/enable)")
@@ -301,6 +302,11 @@ def cmd_info(card, args):
     print(f"card         {os.path.basename(card.path)}, {card.rd(0) & 15} CAN cores")
     running = card.rd(IMAGE_ID)
     print(f"running      {image_name(running)}" + ("  (the application is missing or failed to load)" if running == GOLD else ""))
+    temp = card.rd(MON_TEMP)
+    if temp:                                           # on-chip monitor (XADC), UG480 transfer functions
+        vcc = card.rd(MON_VCC)
+        print(f"FPGA         {(temp >> 4) * 503.975 / 4096 - 273.15:.1f} C, "
+              f"VCCINT {(vcc >> 4 & 0xFFF) * 3 / 4096:.3f} V, VCCAUX {(vcc >> 20) * 3 / 4096:.3f} V")
     j = card.jedec()
     print(f"flash        JEDEC {j.hex()}, {(1 << j[2]) // (1 << 20) if 16 < j[2] < 32 else '?'} MB, status {card.status():#04x}")
     for slot, (base, size) in SLOTS.items():

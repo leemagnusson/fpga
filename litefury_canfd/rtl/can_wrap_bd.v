@@ -85,8 +85,11 @@ module can_wrap_bd #(
             tx_ts[tx_done_txtb] <= sof_ts;
     end
 
-    // Local (non-core) register window: 0x1000-0x1FFF.
-    wire        local_sel = (addr[15:12] == 4'h1);
+    // Local (non-core) register window: 0x1000-0x1FFF of this core's 16 KB.
+    // Only bits 13:12 may be looked at: with several cores the address bits
+    // above select the core and differ per instance (comparing 15:12 made
+    // the capture block visible on core 0 only).
+    wire        local_sel = (addr[13:12] == 2'b01);
     wire [8:0]  local_q   = addr[11:3];          // 8-byte slot: 0x1010 -> slot 2
     wire [2:0]  local_buf = local_q[2:0] - 3'd2; // slot 2 -> buffer 0
     reg  [31:0] local_rdata;
@@ -121,10 +124,10 @@ module can_wrap_bd #(
                     if (aw_got && w_got) begin
                         is_write <= 1'b1; addr <= awaddr_l;
                         aw_got <= 1'b0; w_got <= 1'b0;
-                        psel <= (awaddr_l[15:12] != 4'h1); state <= SETUP;
+                        psel <= (awaddr_l[13:12] != 2'b01); state <= SETUP;
                     end else if (s_axi_arvalid && s_axi_arready) begin
                         is_write <= 1'b0; addr <= s_axi_araddr;
-                        psel <= (s_axi_araddr[15:12] != 4'h1); state <= SETUP;
+                        psel <= (s_axi_araddr[13:12] != 2'b01); state <= SETUP;
                     end
                 end
                 SETUP: begin

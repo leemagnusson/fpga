@@ -137,6 +137,11 @@ as root.
 The bootloader shows itself on the LEDs: one light running along LED 1 to 4
 instead of the status view.
 
+`flash.py info` also prints the FPGA's die temperature and its VCCINT and
+VCCAUX supplies, from the on-chip monitor (XADC) through BAR0 0x4078/0x407C.
+In the Thunderbolt enclosure the first board idles at about 80 C (limit 100 C
+for the industrial grade); CAN traffic does not change that.
+
 First installation, and recovery if the bootloader itself is ever lost, is
 over JTAG (next section):
 
@@ -156,6 +161,8 @@ t32/jtag.sh status               # IDCODE, DONE, INIT_B
 t32/jtag.sh load top.bit         # configure the FPGA (volatile)
 t32/jtag.sh flash golden.bin     # erase/program/verify the flash from address 0, then boot from it
 t32/jtag.sh reboot               # reload the FPGA from flash
+t32/jtag.sh temp                 # temperature and supplies from the on-chip monitor (works with no design
+                                 # loaded too; written but not yet run to completion on hardware)
 ```
 
 `flash` has Vivado write the whole flash job as an SVF file
@@ -243,13 +250,31 @@ candump -H can0               # hardware RX timestamps
 sudo ./hwts_test.py can0 10   # TX (error queue) and RX stamps for sent frames
 ```
 
+`sudo sw/driver-install.sh` installs the copy with DKMS (package
+`ctucanfd-fpga2`), so it replaces the kernel's own modules, is loaded at
+boot and is rebuilt for each new kernel; `--remove` undoes that.
+`hwts-load.sh` is for trying freshly built modules by hand.
+
+With hardware timestamps the copy also delivers frames in bus order. Mainline
+passes the echo of a transmitted frame up when the transmit interrupt is
+served and received frames from NAPI; over PCIe that interrupt is often
+served after the answer has arrived, so `candump` showed the reply before the
+request (and `-td` a zero delta, its way of printing a negative one). Here
+transmit completions are handled in the receive poll, interleaved with the
+received frames by start-of-frame timestamp, and both go up through the
+kernel's rx-offload queue. Checked port 0 against port 1 with both sending as
+fast as the host can queue (about 4600 frames/s each way): 20000 of 20000
+frames each way identical and in order, no line of 31705 captured out of
+order, no overruns or drops; and with 1 kHz request/reply traffic to a motor
+driver: 0 of 7981 lines out of order, against a reversed pair on almost every
+exchange at start-up before.
+
 The copy in `sw/driver/` also fixes a bug in the mainline receive poll that
 matters under load: when a poll used its whole quota and the receive buffer
 ran empty on exactly its last frame, the driver completed the poll and still
 returned the full quota, which queues it twice. On this host that gave
 thousands of "list_del corruption" warnings in `net_rx_action` during
-two-way traffic, and the machine crashed a little later. Use these modules
-(`sw/hwts-load.sh`; they are not installed, so again after every boot)
+two-way traffic, and the machine crashed a little later. Install the copy
 before putting traffic on the card. Mainline's bus-error reporting is broken
 too (the interrupt is enabled but never cleared), so leave `berr-reporting`
 off; the copy no longer enables that interrupt, and has an optional log of
@@ -327,6 +352,9 @@ them identically.
   with `motor_util`, 3989 of 3989 answered, no bus errors, after the data
   sample point moved from 80 % to 70 % (before that the card acknowledged
   none of the driver's frames). Ports 2 and 3 have not had a bus attached.
+  Hardware timestamps worked on port 0 only until the per-core decode of the
+  capture registers in `rtl/can_wrap_bd.v` was fixed (bitstreams from
+  2026-11-24 15:35 on).
 
 - Builds and meets timing in Vivado 2026.1 (x4 Gen1, about 24 % of the
   XC7A100T's LUTs, 17.5 block RAMs). Both the open-source checks and the

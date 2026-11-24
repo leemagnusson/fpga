@@ -92,6 +92,22 @@ package vcomponents is
             O : out std_logic_vector(31 downto 0)
         );
     end component;
+    component XADC is
+        generic (
+            INIT_40 : bit_vector(15 downto 0) := x"0000";
+            INIT_41 : bit_vector(15 downto 0) := x"0000";
+            INIT_42 : bit_vector(15 downto 0) := x"0800"
+        );
+        port (
+            ALM : out std_logic_vector(7 downto 0);
+            BUSY, DRDY, EOC, EOS, JTAGBUSY, JTAGLOCKED, JTAGMODIFIED, OT : out std_logic;
+            CHANNEL, MUXADDR : out std_logic_vector(4 downto 0);
+            DO : out std_logic_vector(15 downto 0);
+            CONVST, CONVSTCLK, DCLK, DEN, DWE, RESET, VN, VP : in std_logic;
+            DADDR : in std_logic_vector(6 downto 0);
+            DI, VAUXN, VAUXP : in std_logic_vector(15 downto 0)
+        );
+    end component;
 end package vcomponents;
 
 -- What the design sends to the configuration primitives, for testbenches
@@ -340,6 +356,46 @@ begin
                 icap_word   <= I;
                 icap_strobe <= '1';
             end if;
+        end if;
+    end process;
+end rtl;
+
+
+-- Answers every DRP read one clock later: 25 C on the temperature register,
+-- 1.0 V and 1.8 V on the supplies.
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity XADC is
+    generic (
+        INIT_40 : bit_vector(15 downto 0) := x"0000";
+        INIT_41 : bit_vector(15 downto 0) := x"0000";
+        INIT_42 : bit_vector(15 downto 0) := x"0800"
+    );
+    port (
+        ALM : out std_logic_vector(7 downto 0);
+        BUSY, DRDY, EOC, EOS, JTAGBUSY, JTAGLOCKED, JTAGMODIFIED, OT : out std_logic;
+        CHANNEL, MUXADDR : out std_logic_vector(4 downto 0);
+        DO : out std_logic_vector(15 downto 0);
+        CONVST, CONVSTCLK, DCLK, DEN, DWE, RESET, VN, VP : in std_logic;
+        DADDR : in std_logic_vector(6 downto 0);
+        DI, VAUXN, VAUXP : in std_logic_vector(15 downto 0)
+    );
+end XADC;
+architecture rtl of XADC is
+begin
+    ALM <= (others => '0'); BUSY <= '0'; EOC <= '0'; EOS <= '0'; OT <= '0';
+    JTAGBUSY <= '0'; JTAGLOCKED <= '0'; JTAGMODIFIED <= '0';
+    CHANNEL <= (others => '0'); MUXADDR <= (others => '0');
+    process (DCLK) is
+    begin
+        if rising_edge(DCLK) then
+            DRDY <= DEN;
+            case DADDR is
+                when "0000000" => DO <= x"9770";   -- 2423 -> 25.0 C
+                when "0000001" => DO <= x"5550";   -- 1365 -> 1.000 V
+                when others    => DO <= x"9990";   -- 2457 -> 1.800 V
+            end case;
         end if;
     end process;
 end rtl;
