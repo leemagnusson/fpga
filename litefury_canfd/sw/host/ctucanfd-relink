@@ -1,0 +1,81 @@
+#!/bin/bash
+# ctucanfd-relink: bring a CTU CAN FD card (LiteFury, artix_m2_canfd) back on
+# the PCI bus after its FPGA has reloaded itself, when it sits in a Thunderbolt
+# enclosure.
+#
+# Reloading the FPGA (sw/flash.py reboot / update, or JTAG) drops the PCIe
+# link. A normal slot trains the link again by itself; the Thunderbolt
+# enclosure this was written for does not (pciehp logs "Link Down" and nothing
+# more). Setting up the enclosure's PCIe tunnel again does bring the card back,
+# and that is what taking its Thunderbolt authorization away and giving it
+# back does.
+#
+# Started by udev when one of the cards leaves the PCI bus
+# (70-ctucanfd-flash.rules). Waits a few seconds for the card to return by
+# itself, then re-authorizes the one enclosure named in
+# /etc/default/ctucanfd-relink, once. Does nothing if no enclosure is named,
+# if it is not connected (the card was simply unplugged), or if bolt has not
+# authorized it.
+
+set -u
+
+SYSFS=${SYSFS:-/sys}
+CONFIG=${CONFIG:-/etc/default/ctucanfd-relink}
+[ -r "$CONFIG" ] && . "$CONFIG"
+ENCLOSURE_UUID=${ENCLOSURE_UUID:-}   # unique_id of the enclosure with the card: boltctl list
+WAIT_CARD=${WAIT_CARD:-4}            # seconds for the card to come back by itself (a fallback boot takes 2)
+CARD_IDS=${CARD_IDS:-0x1760:0xff00}  # vendor:device, space separated
+DRY_RUN=${DRY_RUN:-0}
+
+log() { echo "ctucanfd-relink: $*"; }
+
+card() {
+	local d id
+	for d in "$SYSFS"/bus/pci/devices/*; do
+		id="$(cat "$d/vendor" 2>/dev/null):$(cat "$d/device" 2>/dev/null)"
+		case " $CARD_IDS " in *" $id "*) basename "$d"; return ;; esac
+	done
+}
+
+enclosure() {
+	local d
+	for d in "$SYSFS"/bus/thunderbolt/devices/*; do
+		[ "$(cat "$d/unique_id" 2>/dev/null)" = "$ENCLOSURE_UUID" ] && { echo "$d"; return; }
+	done
+}
+
+if [ -z "$ENCLOSURE_UUID" ]; then
+	log "no ENCLOSURE_UUID in $CONFIG, nothing to do"
+	exit 0
+fi
+
+i=0
+while :; do
+	c=$(card)
+	[ -n "$c" ] && { log "ok: card $c is on the bus"; exit 0; }
+	e=$(enclosure)
+	[ -z "$e" ] && { log "enclosure not connected, nothing to do"; exit 0; }
+	[ "$i" -ge "$WAIT_CARD" ] && break
+	i=$((i + 1))
+	sleep 1
+done
+
+if [ "$(cat "$e/authorized" 2>/dev/null)" != 1 ]; then
+	log "enclosure $(basename "$e") is not authorized: that is bolt's, nothing to do"
+	exit 0
+fi
+log "card gone for ${WAIT_CARD}s with enclosure $(basename "$e") still connected: setting up its PCIe tunnel again"
+if [ "$DRY_RUN" = 1 ]; then
+	log "dry run: would write 0, then 1, to $e/authorized"
+	exit 0
+fi
+echo 0 > "$e/authorized" || { log "could not take the authorization away"; exit 1; }
+sleep 2
+echo 1 > "$e/authorized" || { log "could not authorize the enclosure again"; exit 1; }
+for i in 1 2 3 4 5 6 7 8 9 10; do
+	c=$(card)
+	[ -n "$c" ] && { log "card $c is back"; exit 0; }
+	sleep 1
+done
+log "the card did not come back (is the FPGA configured?)"
+exit 1

@@ -228,6 +228,24 @@ Note that `kicad-cli` ignores the `.kicad_dru` rule file, so the project
 file carries a 0.1 mm copper-to-edge minimum for the gold fingers and the
 rule file restores 0.3 mm for everything else when the GUI is used.
 
+**Known fault, boards made up to November 2026: the JTAG pads (J2) are
+numbered wrongly.** `tag_connect_tc2050` in `gen/footprints.py` numbers the
+pads in zigzag (1 and 2 opposite each other), while Tag-Connect counts 1 to 5
+along one row and 6 to 10 back along the other (TC2050-IDC-NL datasheet,
+"PCB top layer"). On a built board the signals therefore sit on these
+Tag-Connect pins, seen from above with the single alignment hole on the left:
+
+```
+Tag-Connect pin   10   9   8   7   6        3V3  GND  GND  TDI  -
+                   1   2   3   4   5        TMS  TCK  TDO  -    GND
+```
+
+No standard cable or adapter fits; the signals have to be re-ordered with
+jumper wires between the cable and the probe
+(`../litefury_canfd/README.md`, "JTAG with a Lauterbach debugger", has the
+table that was used to bring the first board up). Fix the footprint before
+the next order.
+
 Review list, most important first:
 
 1. **Routing** is yours: BGA fan-out, the four PCIe pairs (100 ohm

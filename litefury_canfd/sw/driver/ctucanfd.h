@@ -26,6 +26,11 @@
 
 enum ctu_can_fd_can_registers;
 
+/* Version of this out-of-tree copy (mainline driver of Linux 7.0 plus the
+ * changes listed in the README of litefury_canfd); also the DKMS version.
+ */
+#define CTUCANFD_FPGA2_VERSION "7.0.2"
+
 struct ctucan_priv {
 	struct can_priv can; /* must be first member! */
 
@@ -49,6 +54,19 @@ struct ctucan_priv {
 	unsigned long drv_flags;
 
 	u32 rxfrm_first_word;
+
+	/* With hwts, finished TXT buffers are completed from the receive poll
+	 * in start-of-frame order with the received frames (ctucan_tx_done).
+	 * The timestamp of the oldest finished buffer is read once and kept
+	 * here; protected by tx_lock.
+	 */
+	bool tx_peeked;
+	ktime_t tx_peek_ts;
+
+	/* Bus errors still to be reported in the kernel log after a start
+	 * (ctucan_berr_diag); the bus error interrupt is masked at zero.
+	 */
+	unsigned int berr_log_left;
 
 	/* Hardware timestamping: set when the TX timestamp capture block
 	 * (LiteFury CAN FD card, offset 0x1000 in the core window) is found.

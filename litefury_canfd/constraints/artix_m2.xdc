@@ -42,3 +42,21 @@ set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
 set_property BITSTREAM.CONFIG.UNUSEDPIN PULLUP [current_design]
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]
+
+## Firmware update over PCIe (rtl/flash_ctl.vhd, sw/flash.py): after configuration the design drives the
+## flash itself, 10 MHz SPI with a half period of slack either way; CCLK goes out through STARTUPE2.
+set_property -dict {PACKAGE_PIN L15 IOSTANDARD LVCMOS33 DRIVE 8} [get_ports flash_cs_n]
+set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33 DRIVE 8} [get_ports flash_mosi]
+set_property -dict {PACKAGE_PIN L17 IOSTANDARD LVCMOS33 PULLUP true} [get_ports flash_miso]
+set_property -dict {PACKAGE_PIN J15 IOSTANDARD LVCMOS33 DRIVE 8} [get_ports flash_wp_n]
+set_property -dict {PACKAGE_PIN J16 IOSTANDARD LVCMOS33 DRIVE 8} [get_ports flash_hold_n]
+set_false_path -to   [get_ports {flash_cs_n flash_mosi flash_wp_n flash_hold_n}]
+set_false_path -from [get_ports flash_miso]
+
+## MultiBoot (UG470 ch. 7, XAPP1247). This file describes the application image, which lives at
+## flash address 0x400000: a failed load falls back to address 0, and the watchdog (about 4 us per
+## count, so 0.7 to 2 s) covers an image that never finishes loading. go.tcl writes the bootloader
+## image for address 0 from the same routed design with NEXT_CONFIG_ADDR and USR_ACCESS changed.
+set_property BITSTREAM.CONFIG.CONFIGFALLBACK ENABLE [current_design]
+set_property BITSTREAM.CONFIG.TIMER_CFG 0x00040000 [current_design]
+set_property BITSTREAM.CONFIG.USR_ACCESS TIMESTAMP [current_design]

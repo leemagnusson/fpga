@@ -1,0 +1,137 @@
+; JTAG access to the artix_m2_canfd card's FPGA with a Lauterbach debugger
+; (TRACE32 PowerView, any architecture; run through jtag.sh).
+;
+;   DO jtag.cmm <mode> <logfile> [<file>]
+;     status         read the IDCODE and the DONE/INIT_B flags
+;     load <bit>     configure the FPGA with a .bit file (volatile)
+;     svf <svf>      play an SVF file, e.g. flash programming written by gen_svf.tcl,
+;                    then reconfigure the FPGA from flash
+;     reboot         reconfigure the FPGA from flash (JPROGRAM)
+;
+; TRACE32's own chain detection does not work on a chain without a CPU, so
+; this drives the TAP by hand. The FPGA's 6-bit IR capture is
+; DONE INIT_B ISC_ENABLED ISC_DONE 0 1.
+
+LOCAL &mode &log &file &id &ir &n &t0 &rc
+ENTRY &mode &log &file
+&id=0
+&ir=0
+&rc=0.
+AREA.Create LOG 200. 4000.
+AREA.Select LOG
+AREA.OPEN LOG "&log"
+ON ERROR GOSUB
+(
+  PRINT "ERROR: " ERROR.MESSAGE() " in " ERROR.CMDLINE()
+  AREA.CLOSE LOG
+  QUIT 1
+)
+SYStem.CONFIG.DEBUGPORTTYPE JTAG
+SYStem.JtagClock 1MHz
+
+; three matching IDCODE reads in a row, within 60 s (time to seat a pogo cable)
+&n=0.
+&t0=0.
+WHILE (&n<3.)&&(&t0<240.)
+(
+  GOSUB ReadId
+  IF (&id&0x0FFFFFFF)==0x0362C093||(&id&0x0FFFFFFF)==0x0362D093
+    &n=&n+1.
+  ELSE
+  (
+    &n=0.
+    WAIT 0.25s
+  )
+  &t0=&t0+1.
+)
+IF &n<3.
+(
+  PRINT "FAIL: no XC7A50T/XC7A35T on the JTAG pins (last IDCODE read 0x" %Hex &id "). All ones: TMS or TCK is not reaching the FPGA; all zeros: TDO is not connected"
+  AREA.CLOSE LOG
+  QUIT 2
+)
+PRINT "idcode 0x" %Hex &id
+GOSUB ReadIr
+PRINT "DONE=" %Decimal ((&ir>>5)&1) " INIT_B=" ((&ir>>4)&1)
+
+IF "&mode"=="load"
+(
+  SYStem.JtagClock 2MHz
+  JTAG.PROGRAM.Xilinx "&file"
+  GOSUB Settle
+)
+ELSE IF "&mode"=="svf"
+(
+  SYStem.JtagClock 2MHz
+  &t0=DATE.UnixTime()
+  JTAG.PROGRAM.SVF "&file"
+  PRINT "SVF played without a TDO mismatch in " %Decimal (DATE.UnixTime()-&t0) " s"
+  GOSUB Jprogram
+  GOSUB Settle
+)
+ELSE IF "&mode"=="reboot"
+(
+  GOSUB Jprogram
+  GOSUB Settle
+)
+AREA.CLOSE LOG
+QUIT &rc
+
+Settle: 
+  ; allow for a bootloader that waits for its watchdog before it falls back
+  SYStem.JtagClock 1MHz
+  &n=0.
+  &ir=0
+  WHILE (&n<16.)&&((&ir&0x20)==0)
+  (
+    WAIT 0.25s
+    GOSUB ReadIr
+    &n=&n+1.
+  )
+  IF (&ir&0x20)!=0
+    PRINT "configured: DONE=1 after " %Decimal &n*250. " ms"
+  ELSE
+  (
+    PRINT "FAIL: DONE is still low (IR capture 0x" %Hex &ir ")"
+    &rc=3.
+  )
+  RETURN
+
+Jprogram: 
+  ; JPROGRAM (0x0B), then BYPASS, and leave the TAP in reset so that the FPGA loads from flash
+  SYStem.JtagClock 1MHz
+  JTAG.LOCK
+  JTAG.PIN ENable
+  JTAG.SHIFTTMS 1 1 1 1 1 0
+  JTAG.SHIFTTMS 1 1 0 0
+  JTAG.SHIFTREG 1 1 0 1 0 0
+  JTAG.SHIFTTMS 1 0
+  JTAG.SHIFTTMS 1 1 0 0
+  JTAG.SHIFTREG 1 1 1 1 1 1
+  JTAG.SHIFTTMS 1 0
+  JTAG.SHIFTTMS 1 1 1 1 1 0
+  JTAG.UNLOCK
+  PRINT "JPROGRAM sent"
+  RETURN
+
+ReadId: 
+  JTAG.LOCK
+  JTAG.PIN ENable
+  JTAG.SHIFTTMS 1 1 1 1 1 0
+  JTAG.SHIFTTMS 1 0 0
+  JTAG.SHIFTREG %Long 0x0
+  &id=JTAG.SHIFT()
+  JTAG.SHIFTTMS 1 0
+  JTAG.UNLOCK
+  RETURN
+
+ReadIr: 
+  JTAG.LOCK
+  JTAG.PIN ENable
+  JTAG.SHIFTTMS 1 1 1 1 1 0
+  JTAG.SHIFTTMS 1 1 0 0
+  JTAG.SHIFTREG 1 1 1 1 1 1
+  &ir=JTAG.SHIFT()
+  JTAG.SHIFTTMS 1 0
+  JTAG.UNLOCK
+  RETURN

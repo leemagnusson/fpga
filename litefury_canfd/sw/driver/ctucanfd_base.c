@@ -87,6 +87,12 @@ enum ctucan_txtb_command {
 	TXT_CMD_SET_ABORT   = 0x04
 };
 
+/* Bus errors reported in the kernel log after each start, see ctucan_berr_diag().
+ * 0 = off (the default; the code has not been run on hardware yet). Set it to
+ * e.g. 16 and rebuild to find out why a node acknowledges nothing.
+ */
+#define CTUCAN_BERR_LOG 0
+
 static const struct can_bittiming_const ctu_can_fd_bit_timing_max = {
 	.name = "ctu_can_fd",
 	.tseg1_min = 2,
@@ -412,6 +418,7 @@ static int ctucan_chip_start(struct net_device *ndev)
 	priv->txb_prio = 0x01234567;
 	priv->txb_head = 0;
 	priv->txb_tail = 0;
+	priv->tx_peeked = false;
 	ctucan_write32(priv, CTUCANFD_TX_PRIORITY, priv->txb_prio);
 
 	/* Configure bit-rates and ssp */
@@ -446,9 +453,15 @@ static int ctucan_chip_start(struct net_device *ndev)
 
 	/* Bus error reporting -> Allow Error/Arb.lost interrupts */
 	if (priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING) {
-		int_ena |= REG_INT_STAT_ALI |
-			   REG_INT_STAT_BEI;
+		int_ena |= REG_INT_STAT_ALI;
 	}
+
+	/* The first bus errors after a start are logged whatever the mode
+	 * (ctucan_berr_diag), which then masks the interrupt again.
+	 */
+	priv->berr_log_left = CTUCAN_BERR_LOG;
+	if (CTUCAN_BERR_LOG)
+		int_ena |= REG_INT_STAT_BEI;
 
 	int_msk = ~int_ena; /* Mask all disabled interrupts */
 
@@ -735,6 +748,8 @@ static void ctucan_read_rx_frame(struct ctucan_priv *priv, struct canfd_frame *c
 	}
 }
 
+static void ctucan_tx_done(struct net_device *ndev, ktime_t before, bool all);
+
 /**
  * ctucan_rx() -  Called from CAN ISR to complete the received frame processing
  * @ndev:	Pointer to net_device structure
@@ -776,12 +791,26 @@ static int ctucan_rx(struct net_device *ndev)
 	}
 
 	ctucan_read_rx_frame(priv, cf, ffw, &ts);
-	if (priv->hwts)
-		skb_hwtstamps(skb)->hwtstamp = ctucan_hwts_to_ktime(priv, ts);
+	if (priv->hwts) {
+		ktime_t t = ctucan_hwts_to_ktime(priv, ts);
+
+		skb_hwtstamps(skb)->hwtstamp = t;
+		/* Our own frames that started before this one go up first */
+		if ((int)(priv->txb_head - priv->txb_tail) > 0)
+			ctucan_tx_done(ndev, t, false);
+	}
 
 	stats->rx_bytes += cf->len;
 	stats->rx_packets++;
-	netif_receive_skb(skb);
+	/* Echoes of transmitted frames reach the stack through netif_rx()
+	 * (can_get_echo_skb). With hwts they are produced here in the poll,
+	 * in between the received frames, so those take the same way to keep
+	 * the order.
+	 */
+	if (priv->hwts)
+		netif_rx(skb);
+	else
+		netif_receive_skb(skb);
 
 	return 1;
 }
@@ -829,6 +858,49 @@ static void ctucan_get_rec_tec(struct ctucan_priv *priv, struct can_berr_counter
 
 	bec->rxerr = FIELD_GET(REG_REC_REC_VAL, err_ctrs);
 	bec->txerr = FIELD_GET(REG_REC_TEC_VAL, err_ctrs);
+}
+
+/**
+ * ctucan_berr_diag() - Log one bus error
+ * @ndev:	net_device pointer
+ *
+ * Without this a node that receives nothing valid only shows a growing error
+ * counter. Logs what the core captured for the first CTUCAN_BERR_LOG bus
+ * errors after a start: type, position in the frame and whether the core was
+ * error passive (its error flag is then recessive, invisible on the bus).
+ * Self-limiting: a bus that produces an error per frame would otherwise
+ * interrupt the host tens of thousands of times a second.
+ */
+static void ctucan_berr_diag(struct net_device *ndev)
+{
+	static const char * const type[] = {
+		"bit", "CRC", "form", "ACK", "stuff", "parity", "type 6", "type 7"
+	};
+	static const char * const pos[] = {
+		"SOF", "arbitration", "control", "data", "CRC", "ACK", "EOF", "error frame",
+		"overload frame", "pos 9", "pos 10", "pos 11", "pos 12", "pos 13", "pos 14", "other"
+	};
+	struct ctucan_priv *priv = netdev_priv(ndev);
+	struct can_berr_counter bec;
+	u32 capt = ctucan_read32(priv, CTUCANFD_ERR_CAPT);
+	u32 status = ctucan_read32(priv, CTUCANFD_STATUS);
+
+	ctucan_get_rec_tec(priv, &bec);
+	if (priv->berr_log_left) {
+		priv->berr_log_left--;
+		netdev_info(ndev, "bus error %u: %s error in %s field%s, %s, rxerr %d, txerr %d\n",
+			    CTUCAN_BERR_LOG - priv->berr_log_left,
+			    type[FIELD_GET(REG_ERR_CAPT_ERR_TYPE, capt)],
+			    pos[FIELD_GET(REG_ERR_CAPT_ERR_POS, capt) & 0xF],
+			    (FIELD_GET(REG_ERR_CAPT_ERR_POS, capt) & 0x10) ? " (error passive)" : "",
+			    FIELD_GET(REG_STATUS_TXS, status) ? "transmitting" :
+			    FIELD_GET(REG_STATUS_RXS, status) ? "receiving" : "after the frame",
+			    bec.rxerr, bec.txerr);
+	}
+	if (!priv->berr_log_left) {
+		ctucan_write32(priv, CTUCANFD_INT_ENA_CLR, REG_INT_STAT_BEI);
+		ctucan_write32(priv, CTUCANFD_INT_MASK_SET, REG_INT_STAT_BEI);
+	}
 }
 
 /**
@@ -1001,7 +1073,16 @@ static int ctucan_rx_poll(struct napi_struct *napi, int quota)
 		ctucan_write32(priv, CTUCANFD_COMMAND, REG_COMMAND_CDO);
 	}
 
-	if (!framecnt && res != 0) {
+	/* Nothing more received: whatever has been transmitted can go up now */
+	if (priv->hwts && !framecnt && (int)(priv->txb_head - priv->txb_tail) > 0)
+		ctucan_tx_done(ndev, 0, true);
+
+	/* A poll that used its whole quota must stay scheduled: completing it
+	 * and then returning the quota puts the NAPI instance on the poll list
+	 * twice (list corruption in net_rx_action, seen under two-way load when
+	 * the FIFO ran empty on exactly the last frame of the quota).
+	 */
+	if (!framecnt && res != 0 && work_done < quota) {
 		if (napi_complete_done(napi, work_done)) {
 			/* Clear and enable RBNEI. It is level-triggered, so
 			 * there is no race condition.
@@ -1030,10 +1111,22 @@ static void ctucan_rotate_txb_prio(struct net_device *ndev)
 }
 
 /**
- * ctucan_tx_interrupt() - Tx done Isr
+ * ctucan_tx_done() - Complete finished TXT buffers
  * @ndev:	net_device pointer
+ * @before:	with hwts: only frames that started before this time
+ * @all:	no such limit
+ *
+ * Mainline calls this from the interrupt handler and so hands the echo of a
+ * transmitted frame to the stack as soon as the transmit interrupt is served,
+ * while received frames go up from NAPI. When that interrupt is served late,
+ * which over PCIe is the normal case for a request that is answered within
+ * 100 us, the answer reaches the sockets before the request. With hardware
+ * timestamps for both directions (hwts) the interrupt handler only schedules
+ * NAPI, and the poll calls this before every received frame and when the
+ * receive buffer is empty, so that echoes and received frames go up in the
+ * order of their start-of-frame timestamps.
  */
-static void ctucan_tx_interrupt(struct net_device *ndev)
+static void ctucan_tx_done(struct net_device *ndev, ktime_t before, bool all)
 {
 	struct ctucan_priv *priv = netdev_priv(ndev);
 	struct net_device_stats *stats = &ndev->stats;
@@ -1062,15 +1155,25 @@ static void ctucan_tx_interrupt(struct net_device *ndev)
 			switch (txtb_status) {
 			case TXT_TOK:
 				ctucan_netdev_dbg(ndev, "TXT_OK\n");
-				if (priv->hwts && priv->can.echo_skb[txtb_id]) {
-					/* Latched at the last EOF bit of this transmission;
-					 * stable until the buffer is reused.
-					 */
-					u64 ts = ctucan_read32(priv, CTUCANFD_TSCAP_TXTB_LO(txtb_id));
+				if (priv->hwts) {
+					if (!priv->tx_peeked) {
+						/* Start of frame of this transmission,
+						 * latched when it completed; stable
+						 * until the buffer is reused.
+						 */
+						u64 ts = ctucan_read32(priv, CTUCANFD_TSCAP_TXTB_LO(txtb_id));
 
-					ts |= (u64)ctucan_read32(priv, CTUCANFD_TSCAP_TXTB_HI(txtb_id)) << 32;
-					skb_hwtstamps(priv->can.echo_skb[txtb_id])->hwtstamp =
-						ctucan_hwts_to_ktime(priv, ts);
+						ts |= (u64)ctucan_read32(priv, CTUCANFD_TSCAP_TXTB_HI(txtb_id)) << 32;
+						priv->tx_peek_ts = ctucan_hwts_to_ktime(priv, ts);
+						priv->tx_peeked = true;
+					}
+					/* not yet: a received frame started earlier */
+					if (!all && !ktime_before(priv->tx_peek_ts, before))
+						goto clear;
+					priv->tx_peeked = false;
+					if (priv->can.echo_skb[txtb_id])
+						skb_hwtstamps(priv->can.echo_skb[txtb_id])->hwtstamp =
+							priv->tx_peek_ts;
 				}
 				stats->tx_bytes += can_get_echo_skb(ndev, txtb_id, NULL);
 				stats->tx_packets++;
@@ -1099,9 +1202,14 @@ static void ctucan_tx_interrupt(struct net_device *ndev)
 				 * pretty much expected.
 				 */
 				if (first) {
-					netdev_err(ndev,
-						   "BUG: TXB#%u not in a finished state (0x%x)!\n",
-						   txtb_id, txtb_status);
+					/* With hwts the poll looks here whenever
+					 * something is being transmitted: finding
+					 * nothing finished is normal.
+					 */
+					if (!priv->hwts)
+						netdev_err(ndev,
+							   "BUG: TXB#%u not in a finished state (0x%x)!\n",
+							   txtb_id, txtb_status);
 					spin_unlock_irqrestore(&priv->tx_lock, flags);
 					/* do not clear nor wake */
 					return;
@@ -1121,7 +1229,10 @@ clear:
 		/* If no buffers were processed this time, we cannot clear - that would introduce
 		 * a race condition.
 		 */
-		if (some_buffers_processed) {
+		if (some_buffers_processed && !priv->hwts) {
+			/* (With hwts the interrupt handler has cleared it already,
+			 * before the poll that brought us here was scheduled.)
+			 */
 			/* Clear the interrupt again. We do not want to receive again interrupt for
 			 * the buffer already handled. If it is the last finished one then it would
 			 * cause log of spurious interrupt.
@@ -1180,8 +1291,18 @@ static irqreturn_t ctucan_interrupt(int irq, void *dev_id)
 		/* TXT Buffer HW Command Interrupt */
 		if (FIELD_GET(REG_INT_STAT_TXBHCI, isr)) {
 			ctucan_netdev_dbg(ndev, "TXBHCI\n");
-			/* Cleared inside */
-			ctucan_tx_interrupt(ndev);
+			if (priv->hwts) {
+				/* Completed in the poll, see ctucan_tx_done(). The
+				 * poll goes by the buffers' status, not by this
+				 * flag, and runs after it has been cleared here, so
+				 * nothing that finishes in between gets lost.
+				 */
+				ctucan_write32(priv, CTUCANFD_INT_STAT, REG_INT_STAT_TXBHCI);
+				napi_schedule(&priv->napi);
+			} else {
+				/* Cleared inside */
+				ctucan_tx_done(ndev, 0, true);
+			}
 		}
 
 		/* Error interrupts */
@@ -1193,6 +1314,14 @@ static irqreturn_t ctucan_interrupt(int irq, void *dev_id)
 			ctucan_netdev_dbg(ndev, "some ERR interrupt: clearing 0x%08x\n", icr);
 			ctucan_write32(priv, CTUCANFD_INT_STAT, icr);
 			ctucan_err_interrupt(ndev, isr);
+		}
+		/* Bus error: mainline enables this one with berr-reporting but
+		 * never clears it. Here it is on for the first errors after a
+		 * start only, for the log.
+		 */
+		if (FIELD_GET(REG_INT_STAT_BEI, isr)) {
+			ctucan_write32(priv, CTUCANFD_INT_STAT, REG_INT_STAT_BEI);
+			ctucan_berr_diag(ndev);
 		}
 		/* Ignore RI, TI, LFI, RFI, BSI */
 	}
@@ -1554,3 +1683,4 @@ MODULE_AUTHOR("Martin Jerabek <martin.jerabek01@gmail.com>");
 MODULE_AUTHOR("Pavel Pisa <pisa@cmp.felk.cvut.cz>");
 MODULE_AUTHOR("Ondrej Ille <ondrej.ille@gmail.com>");
 MODULE_DESCRIPTION("CTU CAN FD interface");
+MODULE_VERSION(CTUCANFD_FPGA2_VERSION);

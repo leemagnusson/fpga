@@ -21,6 +21,8 @@
 #
 # Outputs, named like the other projects in this repo so CI treats them alike:
 #   top.bit, top.bin, reports/
+# and for artix_m2 golden.bit, golden.bin: the bootloader image for flash
+# address 0 (top.bin is then the application image for 0x400000)
 
 set design_name top
 set here [file dirname [file normalize [info script]]]
@@ -59,7 +61,7 @@ if {![file exists $can_src/slf_rtl.yml] && ![info exists ::env(BD_SMOKE_TEST)]} 
 file delete -force ./build
 create_project -force canfd ./build -part $device
 set_property target_language VHDL [current_project]
-add_files [list $here/rtl/misc_regs.vhd $here/rtl/irq_bridge.v]
+add_files [list $here/rtl/flash_ctl.vhd $here/rtl/misc_regs.vhd $here/rtl/irq_bridge.v]
 if {[file exists $can_src/slf_rtl.yml]} {
     # Core RTL, in the order of the core's own file list, into its library.
     set fh [open $can_src/slf_rtl.yml r]
@@ -150,6 +152,18 @@ close $fh
 file copy -force ./build/canfd.runs/impl_1/canfd_wrapper.bit ./${design_name}.bit
 file copy -force ./build/canfd.runs/impl_1/canfd_wrapper.bin ./${design_name}.bin
 puts "Bitstream: [file normalize ./${design_name}.bit]"
+
+if {$::board eq "artix_m2"} {
+    # The same routed design again as the bootloader ("golden") image for flash
+    # address 0: its header sends the FPGA on to the application image at
+    # APP_ADDR, and the FPGA comes back to this one if that fails to load
+    # (MultiBoot with fallback, see README). USR_ACCESS, readable at BAR0
+    # 0x4070, tells the host which of the two is running.
+    set_property BITSTREAM.CONFIG.NEXT_CONFIG_ADDR 0x00400000 [current_design]
+    set_property BITSTREAM.CONFIG.USR_ACCESS 0x474F4C44 [current_design]
+    write_bitstream -force -bin_file ./golden.bit
+    puts "Bootloader bitstream: [file normalize ./golden.bit]"
+}
 
 # Skip board programming when running under CI (no hardware attached)
 if {![info exists ::env(CI)]} {

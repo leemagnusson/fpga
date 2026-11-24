@@ -80,6 +80,102 @@ transceiver without a core is held recessive and in standby. The pin constraints
 pins change. `program.tcl` and `program_flash.tcl` still name the LiteFury's
 device, hence `CI=1`.
 
+The build leaves two bitstreams, the same design with different headers:
+`golden.bit`/`golden.bin`, the bootloader for flash address 0, and
+`top.bit`/`top.bin`, the application for flash address 0x400000 (next
+section). `top.bin` on its own at address 0 also works, as a card without a
+bootloader.
+
+### Firmware update over PCIe (artix_m2)
+
+The card's flash (W25Q128JV, 16 MB) holds two images, using the FPGA's
+MultiBoot with fallback (UG470 chapter 7, XAPP1247):
+
+| Flash address | File | Role |
+|---|---|---|
+| 0x000000 | `golden.bin` | Bootloader. Its header sends the FPGA straight on to 0x400000; if no valid image loads from there, the FPGA comes back and loads this one. Written once over JTAG, then left alone |
+| 0x400000 | `top.bin` | Application: what normally runs, and what an update replaces |
+
+Both are the complete design, including the flash access below, so a card
+that fell back to the bootloader still enumerates, still works as a CAN
+card, and can be updated again. Fallback covers an empty or erased
+application slot and one whose header is damaged (the configuration watchdog,
+`TIMER_CFG`, expires after 0.7 to 2 s) as well as a damaged body (CRC error).
+`sw/flash.py` writes the application's first page, the one with the sync
+word, last, so an interrupted update leaves a slot the FPGA skips.
+
+```sh
+sw/flash.py info                 # running image, flash contents
+sw/flash.py update top.bin       # write + verify the application, reload the FPGA, check that it runs
+sw/flash.py reboot               # reload the FPGA from flash, as at power-up
+sw/flash.py erase                # drop the application: the bootloader runs from then on
+```
+
+`info` tells the two images apart by the bitstream's `USR_ACCESS` word,
+which the design shows at BAR0 0x4070: `GOLD` for the bootloader, the build
+time for the application. `write --slot golden` replaces the bootloader over
+PCIe; it asks first, because nothing protects the card while that runs.
+
+The tool maps BAR0 through sysfs. Run it as root, or run
+`sudo sw/host-setup.sh` once: it installs a udev rule that gives group
+`plugdev` access to BAR0 and keeps the PCIe port above the card awake
+(a hot-plug port with nothing behind it is otherwise put into D3hot).
+
+`reboot` and `update` reload the FPGA, which takes the card off the bus for
+a moment. In the Thunderbolt enclosure the card was brought up in (Ugreen,
+JHL9480) the link does not come back by itself after that: pciehp logs
+"Link Down" and nothing more, also with the port awake. Setting up the
+enclosure's PCIe tunnel again does bring the card back, so `host-setup.sh`
+also installs `ctucanfd-relink`: when a card leaves the bus and is not back
+within four seconds, it takes the Thunderbolt authorization of the enclosure
+named in `/etc/default/ctucanfd-relink` away and gives it back
+(`sudo sw/host-setup.sh <uuid from boltctl list>` sets the name). With it an
+update takes about 23 s end to end, 10 s of that for the card to return.
+Without Thunderbolt, replug the card or try `echo 1 > /sys/bus/pci/rescan`
+as root.
+
+The bootloader shows itself on the LEDs: one light running along LED 1 to 4
+instead of the status view.
+
+First installation, and recovery if the bootloader itself is ever lost, is
+over JTAG (next section):
+
+```sh
+t32/jtag.sh flash golden.bin     # bootloader to address 0, about two minutes
+sw/flash.py update top.bin       # then the application over PCIe
+```
+
+### JTAG with a Lauterbach debugger
+
+`t32/jtag.sh` drives the FPGA's JTAG port through TRACE32 (headless; tested
+with a uTrace and `t32marm`, any PowerView executable your licence covers
+works: `T32EXE`):
+
+```sh
+t32/jtag.sh status               # IDCODE, DONE, INIT_B
+t32/jtag.sh load top.bit         # configure the FPGA (volatile)
+t32/jtag.sh flash golden.bin     # erase/program/verify the flash from address 0, then boot from it
+t32/jtag.sh reboot               # reload the FPGA from flash
+```
+
+`flash` has Vivado write the whole flash job as an SVF file
+(`t32/gen_svf.tcl`) and plays that with `JTAG.PROGRAM.SVF`, since Vivado's
+hardware manager cannot use the debugger itself.
+
+Wiring: the card's Tag-Connect pads are **not** in Tag-Connect's pin order
+(see `../artix_m2_canfd/README.md`), so a TC2050 cable cannot be plugged
+straight into a debugger. With a TC2050-IDC(-NL) cable and Lauterbach's
+MIPI-20T to IDC20A (ARM-20) converter, join them with jumper wires:
+
+| Signal | TC2050 ribbon connector pin | ARM-20 pin |
+|---|---|---|
+| TMS | 1 | 7 |
+| TCK | 2 | 9 |
+| TDO | 3 | 13 |
+| TDI | 7 | 5 |
+| VREF (3.3 V) | 10 | 1 |
+| GND | 5 (also 8, 9) | 4 (any even pin from 4 up) |
+
 ### Debug build
 
 `DEBUG_ILA=1 ./go.sh` adds one ILA that watches the PCIe bridge's AXI master
@@ -104,13 +200,23 @@ candump can0 &
 cansend can0 123##1.DEADBEEF
 ```
 
+On a host that configures CAN interfaces with systemd-networkd,
+`sudo sw/host-setup.sh` installs `sw/host/05-ctucanfd.network`, which gives
+every interface of these cards the same timing as `sw/can-up.sh` and brings
+it up; a generic `Type=can` file with `BitRate=` would run them 20 % slow
+(below).
+
 `sw/can-up.sh` sets the bit timing explicitly in quanta rather than with
 `bitrate`/`dbitrate` (`ip` then reports 1.25 Mbit/s, the driver's view at its
 assumed 100 MHz; the wire rate is 1 Mbit/s). The driver assumes a 100 MHz core clock (hard-coded
 in `ctucanfd_pci`), while the core here runs at 80 MHz so that 8 Mbit/s is
 reachable at all (100 MHz / 8 MHz = 12.5 quanta is not possible). With
 explicit quanta the real rates are exact: 80 tq at 12.5 ns = 1 Mbit/s and
-10 tq = 8 Mbit/s, both sampled at 80 %. If you want a different rate,
+10 tq = 8 Mbit/s, sampled at 75 % and 70 % with the widest jump width each
+allows. The early data sample point is deliberate: a node whose clock does
+not divide to 8 Mbit/s runs slightly off (an STM32G4 at 170 MHz sends
+8.095 Mbit/s), and with the earlier 80 % / 2 tq setting this card
+acknowledged nothing such a node sent. If you want a different rate,
 compute it for 80 MHz and pass `tq 10` with the segment counts.
 
 ### Hardware timestamps
@@ -136,6 +242,19 @@ sudo ../can-up.sh can0
 candump -H can0               # hardware RX timestamps
 sudo ./hwts_test.py can0 10   # TX (error queue) and RX stamps for sent frames
 ```
+
+The copy in `sw/driver/` also fixes a bug in the mainline receive poll that
+matters under load: when a poll used its whole quota and the receive buffer
+ran empty on exactly its last frame, the driver completed the poll and still
+returned the full quota, which queues it twice. On this host that gave
+thousands of "list_del corruption" warnings in `net_rx_action` during
+two-way traffic, and the machine crashed a little later. Use these modules
+(`sw/hwts-load.sh`; they are not installed, so again after every boot)
+before putting traffic on the card. Mainline's bus-error reporting is broken
+too (the interrupt is enabled but never cleared), so leave `berr-reporting`
+off; the copy no longer enables that interrupt, and has an optional log of
+the first bus errors after a start instead (`CTUCAN_BERR_LOG`, off by default
+and not yet run on hardware).
 
 The patch detects the capture block by a signature word, so the same modules
 work unchanged on hardware without it (timestamping stays software-only).
@@ -168,7 +287,13 @@ echo "10ee cafd ffffffff ffffffff 0 0 1" | sudo tee /sys/bus/pci/drivers/ctucanf
 BAR0 (32 KB) is what the driver's `ctucanfd_pci.c` expects from CTU's card:
 offset 0x0000 holds an ID word whose low nibble is the number of cores (1),
 and 0x4050 is the "Avalon-to-PCIe interrupt enable" register, implemented
-here as a real interrupt gate. BAR1 (16 KB) is the CAN core's register map;
+here as a real interrupt gate. On the artix_m2 card BAR0 also has the
+configuration flash (`rtl/flash_ctl.vhd`, registers listed at the top of
+`rtl/misc_regs.vhd`): 0x4060 signature `0x464C5348`, 0x4064 to 0x406C an SPI
+master on the flash pins with CCLK driven through STARTUPE2, 0x4070 the
+bitstream's `USR_ACCESS` word, and 0x4074 a reboot register that sends the
+IPROG sequence to ICAPE2. `sim/flash_tb.vhd` checks them in GHDL.
+BAR1 (16 KB) is the CAN core's register map;
 with several cores (artix_m2) BAR1 holds one 16 KB window per core, 0x4000
 apart as the driver expects, each with its own timestamp capture block, and
 all cores share the one interrupt.
@@ -190,6 +315,18 @@ project flow and leaves outputs named like the other projects so CI handles
 them identically.
 
 ## Status and caveats
+
+- artix_m2 card, first board (2026-11-24, Linux 7.0, Thunderbolt 5
+  enclosure): configures from flash, enumerates at x4 Gen1, `ctucanfd_pci`
+  binds with four cores. Bootloader and application written over JTAG and
+  over PCIe; update, reboot and both fallback cases (empty application slot:
+  back in the bootloader after about 1.5 s; application with a zeroed page:
+  bootloader) work. CAN: port 0 to port 1 with every frame checked (classic,
+  FD, FD with the 8 Mbit/s data phase), and port 0 against an obot3 motor
+  driver (STM32G474, whose data phase is 8.095 Mbit/s): 1 kHz request/reply
+  with `motor_util`, 3989 of 3989 answered, no bus errors, after the data
+  sample point moved from 80 % to 70 % (before that the card acknowledged
+  none of the driver's frames). Ports 2 and 3 have not had a bus attached.
 
 - Builds and meets timing in Vivado 2026.1 (x4 Gen1, about 24 % of the
   XC7A100T's LUTs, 17.5 block RAMs). Both the open-source checks and the

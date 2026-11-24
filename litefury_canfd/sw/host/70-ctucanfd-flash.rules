@@ -1,0 +1,9 @@
+# CTU CAN FD PCIe cards from this repo (LiteFury, artix_m2_canfd), for sw/flash.py:
+# - members of plugdev may map BAR0, so the flash update tool runs without root;
+# - the PCIe port above the card stays awake. A hot-plug port with nothing behind
+#   it is otherwise suspended (D3hot), and then does not notice the card coming
+#   back after the FPGA has reloaded itself (flash.py reboot / update).
+ACTION=="add|bind|change", SUBSYSTEM=="pci", ATTR{vendor}=="0x1760", ATTR{device}=="0xff00", RUN+="/bin/sh -c 'chgrp plugdev /sys$devpath/resource0 && chmod 0660 /sys$devpath/resource0; echo on > /sys$devpath/../power/control'"
+# One of the cards left the PCI bus: if it sits in a Thunderbolt enclosure and
+# only reloaded its FPGA, it needs help to come back. See /usr/local/sbin/ctucanfd-relink.
+ACTION=="remove", SUBSYSTEM=="pci", ENV{PCI_ID}=="1760:FF00", RUN+="/usr/bin/systemctl --no-block start ctucanfd-relink.service"

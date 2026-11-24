@@ -69,7 +69,10 @@ echo "can_sim ran to 2 ms without errors"
 endgroup
 
 group "litefury_canfd: analyse glue logic (GHDL + Yosys)"
-ghdl -a $GHDL_FLAGS litefury_canfd/rtl/misc_regs.vhd
+ghdl -a $GHDL_FLAGS litefury_canfd/rtl/flash_ctl.vhd litefury_canfd/rtl/misc_regs.vhd
+# Flash access and reboot registers against an SPI slave model and the ICAPE2 stub.
+ghdl -a $GHDL_FLAGS litefury_canfd/sim/flash_tb.vhd
+ghdl --elab-run $GHDL_FLAGS flash_tb --assert-level=error | grep -c ' ok ' | sed 's/$/ flash_tb checks passed/'
 yosys -q -p "read_verilog litefury_canfd/rtl/irq_bridge.v; synth_xilinx -top irq_bridge"
 echo "ok: litefury_canfd/rtl"
 endgroup

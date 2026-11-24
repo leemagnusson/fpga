@@ -84,7 +84,23 @@ def generate():
              "set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]",
              "set_property BITSTREAM.CONFIG.UNUSEDPIN PULLUP [current_design]",
              "set_property CONFIG_VOLTAGE 3.3 [current_design]",
-             "set_property CFGBVS VCCO [current_design]"]
+             "set_property CFGBVS VCCO [current_design]",
+             "", "## Firmware update over PCIe (rtl/flash_ctl.vhd, sw/flash.py): after configuration the design drives the",
+             "## flash itself, 10 MHz SPI with a half period of slack either way; CCLK goes out through STARTUPE2.",
+             io("QSPI_CS_N", "flash_cs_n", " DRIVE 8"),
+             io("QSPI_IO0", "flash_mosi", " DRIVE 8"),
+             io("QSPI_IO1", "flash_miso", " PULLUP true"),
+             io("QSPI_IO2", "flash_wp_n", " DRIVE 8"),
+             io("QSPI_IO3", "flash_hold_n", " DRIVE 8"),
+             "set_false_path -to   [get_ports {flash_cs_n flash_mosi flash_wp_n flash_hold_n}]",
+             "set_false_path -from [get_ports flash_miso]",
+             "", "## MultiBoot (UG470 ch. 7, XAPP1247). This file describes the application image, which lives at",
+             "## flash address 0x400000: a failed load falls back to address 0, and the watchdog (about 4 us per",
+             "## count, so 0.7 to 2 s) covers an image that never finishes loading. go.tcl writes the bootloader",
+             "## image for address 0 from the same routed design with NEXT_CONFIG_ADDR and USR_ACCESS changed.",
+             "set_property BITSTREAM.CONFIG.CONFIGFALLBACK ENABLE [current_design]",
+             "set_property BITSTREAM.CONFIG.TIMER_CFG 0x00040000 [current_design]",
+             "set_property BITSTREAM.CONFIG.USR_ACCESS TIMESTAMP [current_design]"]
     return {"artix_m2_early.xdc": "\n".join(early) + "\n", "artix_m2.xdc": "\n".join(late) + "\n"}
 
 

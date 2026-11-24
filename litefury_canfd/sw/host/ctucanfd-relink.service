@@ -1,0 +1,7 @@
+[Unit]
+Description=Bring a CTU CAN FD card in a Thunderbolt enclosure back after an FPGA reload
+Documentation=file:/usr/local/sbin/ctucanfd-relink
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ctucanfd-relink

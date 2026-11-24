@@ -74,7 +74,37 @@ package vcomponents is
             CLKIN1, PWRDWN, RST, CLKFBIN : in std_logic
         );
     end component;
+    component STARTUPE2 is
+        generic ( PROG_USR : string := "FALSE"; SIM_CCLK_FREQ : real := 0.0 );
+        port (
+            CFGCLK, CFGMCLK, EOS, PREQ : out std_logic;
+            CLK, GSR, GTS, KEYCLEARB, PACK, USRCCLKO, USRCCLKTS, USRDONEO, USRDONETS : in std_logic
+        );
+    end component;
+    component USR_ACCESSE2 is
+        port ( CFGCLK : out std_logic; DATA : out std_logic_vector(31 downto 0); DATAVALID : out std_logic );
+    end component;
+    component ICAPE2 is
+        generic ( ICAP_WIDTH : string := "X32" );
+        port (
+            CLK, CSIB, RDWRB : in std_logic;
+            I : in  std_logic_vector(31 downto 0);
+            O : out std_logic_vector(31 downto 0)
+        );
+    end component;
 end package vcomponents;
+
+-- What the design sends to the configuration primitives, for testbenches
+-- (litefury_canfd/sim/flash_tb.vhd): the CCLK pin behind STARTUPE2 and the
+-- words written to ICAPE2.
+library ieee;
+use ieee.std_logic_1164.all;
+
+package sim_probe is
+    signal cclk        : std_logic := '0';
+    signal icap_word   : std_logic_vector(31 downto 0) := (others => '0');
+    signal icap_strobe : std_logic := '0';
+end package sim_probe;
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -249,4 +279,67 @@ begin
     CLKOUT4 <= CLKIN1; CLKOUT5 <= CLKIN1; CLKOUT6 <= CLKIN1;
     CLKFBOUT <= CLKIN1; CLKFBOUTB <= not CLKIN1;
     LOCKED <= '1';
+end rtl;
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+use work.sim_probe.all;
+
+entity STARTUPE2 is
+    generic ( PROG_USR : string := "FALSE"; SIM_CCLK_FREQ : real := 0.0 );
+    port (
+        CFGCLK, CFGMCLK, EOS, PREQ : out std_logic;
+        CLK, GSR, GTS, KEYCLEARB, PACK, USRCCLKO, USRCCLKTS, USRDONEO, USRDONETS : in std_logic
+    );
+end STARTUPE2;
+architecture rtl of STARTUPE2 is
+begin
+    cclk    <= transport USRCCLKO after 7.5 ns;     -- worst-case TUSRCCLKO
+    CFGCLK  <= '0';
+    CFGMCLK <= '0';
+    EOS     <= '1';
+    PREQ    <= '0';
+end rtl;
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity USR_ACCESSE2 is
+    port ( CFGCLK : out std_logic; DATA : out std_logic_vector(31 downto 0); DATAVALID : out std_logic );
+end USR_ACCESSE2;
+architecture rtl of USR_ACCESSE2 is
+begin
+    CFGCLK    <= '0';
+    DATA      <= x"474F4C44";
+    DATAVALID <= '1';
+end rtl;
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+use work.sim_probe.all;
+
+entity ICAPE2 is
+    generic ( ICAP_WIDTH : string := "X32" );
+    port (
+        CLK, CSIB, RDWRB : in std_logic;
+        I : in  std_logic_vector(31 downto 0);
+        O : out std_logic_vector(31 downto 0)
+    );
+end ICAPE2;
+architecture rtl of ICAPE2 is
+begin
+    O <= (others => '0');
+    process (CLK) is
+    begin
+        if rising_edge(CLK) then
+            icap_strobe <= '0';
+            if CSIB = '0' and RDWRB = '0' then
+                icap_word   <= I;
+                icap_strobe <= '1';
+            end if;
+        end if;
+    end process;
 end rtl;

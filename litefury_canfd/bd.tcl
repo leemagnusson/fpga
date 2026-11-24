@@ -124,6 +124,14 @@ connect_bd_net [get_bd_pins $rst_pcie/peripheral_aresetn] [get_bd_pins $smc/ares
 # ---- BAR0: board registers ----------------------------------------------------
 set misc [create_bd_cell -type module -reference misc_regs misc_regs_0]
 set_property CONFIG.NUM_CORES $::num_can $misc
+if {$::board eq "artix_m2"} {
+    # Configuration flash on BAR0 for firmware updates over PCIe (rtl/flash_ctl.vhd, sw/flash.py).
+    set_property CONFIG.HAS_FLASH {true} $misc
+    foreach {p dir} {flash_cs_n O flash_mosi O flash_miso I flash_wp_n O flash_hold_n O} {
+        create_bd_port -dir $dir $p
+        connect_bd_net [get_bd_ports $p] [get_bd_pins $misc/$p]
+    }
+}
 connect_bd_intf_net [get_bd_intf_pins $smc/M00_AXI] [get_bd_intf_pins $misc/s_axi]
 connect_bd_net [get_bd_pins $clk/clk_out1] [get_bd_pins $misc/s_axi_aclk]
 connect_bd_net [get_bd_pins $rst_can/peripheral_aresetn] [get_bd_pins $misc/s_axi_aresetn]
